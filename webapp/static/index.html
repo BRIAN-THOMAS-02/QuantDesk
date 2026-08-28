@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>QuantDesk India — Trading & Investing Intelligence</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+<!-- ══════════════ TOP BAR ══════════════ -->
+<header class="topbar">
+  <div class="brand"><span class="logo">◆</span> QUANTDESK <em>INDIA</em></div>
+  <div class="search-wrap">
+    <input id="globalSymbol" placeholder="Search symbol e.g. RELIANCE" spellcheck="false"/>
+    <button id="btnGoSymbol">Go</button>
+  </div>
+  <div class="top-status">
+    <span id="marketPhase" class="pill">…</span>
+    <span id="clock" class="mono">--:--:--</span>
+    <span id="modePill" class="pill mode">PAPER</span>
+  </div>
+</header>
+
+<div class="shell">
+
+<!-- ══════════════ SIDEBAR ══════════════ -->
+<nav class="sidebar" id="sideNav">
+  <a data-panel="dashboard" class="active">◧ Dashboard</a>
+  <a data-panel="screener">⌕ Screener & Signals</a>
+  <a data-panel="charts">▤ Charts & TA</a>
+  <a data-panel="options">⬡ Options Lab</a>
+  <a data-panel="backtest">↗ Backtest Lab</a>
+  <a data-panel="whales">🐋 Whale Radar</a>
+  <a data-panel="risk">⚖ Portfolio & Risk</a>
+  <a data-panel="case">🔬 Case Study</a>
+  <a data-panel="radar">🌡 Volatility Radar</a>
+  <a data-panel="library">ƒ Formula Library</a>
+</nav>
+
+<main class="content">
+
+<!-- ══════════════ DASHBOARD ══════════════ -->
+<section id="panel-dashboard" class="panel active">
+  <h1>Market Dashboard <i class="fi" data-f="fii_dii_regime_score" title=""></i></h1>
+  <div class="grid g4 tiles" id="indexTiles"></div>
+
+  <div class="grid g2-1 mt">
+    <div class="card">
+      <h3>Institutional Flows — FII / DII <i class="fi" data-f="fii_dii_regime_score"></i></h3>
+      <canvas id="flowChart" height="150"></canvas>
+      <table class="tbl compact" id="flowTable"></table>
+    </div>
+    <div class="card center-card">
+      <h3>FII Regime Dial <i class="fi" data-f="fii_dii_regime_score"></i></h3>
+      <svg viewBox="0 0 200 110" class="gauge" id="regimeGauge"></svg>
+      <div id="regimeLabel" class="big-label">—</div>
+      <div id="regimeDetail" class="sub-label mono"></div>
+    </div>
+  </div>
+
+  <div class="card mt">
+    <h3>System Pipeline — how a signal is born
+      <i class="fi" data-f="screener_composite"></i></h3>
+    <div class="pipeline">
+      <div class="pipe-node"><b>OSINT DATA</b><small>NSE · yfinance · deals · delivery</small><i class="fi" data-f="volume_anomaly"></i></div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-node"><b>QUANT MODELS</b><small>BS · Heston · Monte Carlo · vol estimators</small><i class="fi" data-f="heston_model"></i></div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-node"><b>SIGNALS</b><small>screener score + strategy triggers</small><i class="fi" data-f="screener_composite"></i></div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-node"><b>RISK GATE</b><small>ATR sizing · Kelly · heat · VaR</small><i class="fi" data-f="atr_position_size"></i></div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-node exec"><b>EXECUTION</b><small>paper book now → Kite when keys added</small><i class="fi" data-f="fixed_fractional"></i></div>
+    </div>
+  </div>
+
+  <div class="grid g2 mt">
+    <div class="card"><h3>Recent Whale Prints <i class="fi" data-f="whale_score"></i></h3>
+      <table class="tbl" id="dashWhaleTable"></table></div>
+    <div class="card"><h3>Paper Book Snapshot <i class="fi" data-f="fixed_fractional"></i></h3>
+      <div id="paperSnapshot" class="mono small"></div></div>
+  </div>
+</section>
+
+<!-- ══════════════ SCREENER ══════════════ -->
+<section id="panel-screener" class="panel">
+  <h1>Swing Screener & Signal Engine</h1>
+  <div class="toolbar card">
+    <label>Candidates: <input type="number" id="scrTopN" value="12" min="5" max="40" class="w60"/></label>
+    <label>Custom universe (CSV, optional): <input id="scrUniverse" placeholder="RELIANCE,TCS,HDFCBANK" class="w220"/></label>
+    <button id="btnScreener" class="primary">▶ Run Screener</button>
+    <span id="scrStatus" class="muted small"></span>
+    <span class="grow"></span>
+    <span class="muted small">Score = weighted factor blend <i class="fi" data-f="screener_composite"></i></span>
+  </div>
+  <div class="card"><div class="tbl-wrap"><table class="tbl clickable" id="screenerTable"></table></div></div>
+
+  <div class="card mt hidden" id="signalCard">
+    <h2 id="sigTitle">Signal</h2>
+    <div id="signalBody"></div>
+    <div class="row-actions">
+      <select id="sigStrategy">
+        <option value="supertrend_rsi">Supertrend + RSI</option>
+        <option value="breakout_pullback">Breakout Pullback</option>
+        <option value="bb_mean_reversion">Bollinger Mean Reversion</option>
+        <option value="ema_cross_adx">EMA Cross ADX</option>
+        <option value="weekly_momentum">Weekly Momentum</option>
+      </select>
+      <button id="btnRegenSignal" class="primary">⟳ Regenerate</button>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════ CHARTS ══════════════ -->
+<section id="panel-charts" class="panel">
+  <h1>Charts & Technical Analysis</h1>
+  <div class="toolbar card">
+    <input id="chSymbol" value="RELIANCE" class="w140 mono"/>
+    <select id="chPeriod">
+      <option value="6mo">6 Months</option><option value="1y" selected>1 Year</option>
+      <option value="2y">2 Years</option><option value="max">Max</option>
+    </select>
+    <button id="btnChart" class="primary">Load</button>
+    <span class="sep"></span>
+    <label><input type="checkbox" id="ovEma200"/> EMA200</label>
+    <label><input type="checkbox" id="ovEma50" checked/> EMA50</label>
+    <label><input type="checkbox" id="ovBB"/> Bollinger</label>
+    <label><input type="checkbox" id="ovST" checked/> Supertrend</label>
+  </div>
+  <div class="grid chart-grid">
+    <div class="card chart-card">
+      <div id="tvMain" class="tv-chart"></div>
+      <div class="tv-sub"><div id="tvRsi" class="tv-pane"></div><div id="tvMacd" class="tv-pane"></div></div>
+    </div>
+    <div class="card side-card">
+      <h3>Live Indicator Read <i class="fi" data-f="adx"></i></h3>
+      <div id="indReadout"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════ OPTIONS LAB ══════════════ -->
+<section id="panel-options" class="panel">
+  <h1>Options Lab — Black-Scholes powered</h1>
+  <div class="toolbar card">
+    <select id="optUnderlying">
+      <option>NIFTY</option><option>BANKNIFTY</option><option>FINNIFTY</option>
+      <option>RELIANCE</option><option>HDFCBANK</option><option>TCS</option><option>INFY</option>
+    </select>
+    <select id="optExpiry"><option>loading…</option></select>
+    <button id="btnChain" class="primary">Load Chain</button>
+    <span id="chainStatus" class="muted small"></span>
+  </div>
+  <div class="grid g4 tiles" id="optIntelTiles"></div>
+  <div class="grid g2 mt">
+    <div class="card"><h3>OI by Strike <i class="fi" data-f="pcr"></i></h3><canvas id="oiChart" height="180"></canvas></div>
+    <div class="card"><h3>IV Smile <i class="fi" data-f="implied_vol"></i></h3><canvas id="ivSmile" height="180"></canvas></div>
+  </div>
+  <div class="card mt"><h3>Option Chain + Greeks <i class="fi" data-f="delta"></i></h3>
+    <div class="tbl-wrap tall"><table class="tbl tiny mono" id="chainTable"></table></div></div>
+
+  <div class="card mt">
+    <h3>Strategy Builder — payoff at expiry <i class="fi" data-f="payoff_diagram"></i></h3>
+    <div class="toolbar wrap">
+      <select id="presetSel">
+        <option value="iron_condor">Iron Condor</option>
+        <option value="bull_call_spread">Bull Call Spread</option>
+        <option value="covered_call">Covered Call</option>
+        <option value="cash_secured_put">Cash-Secured Put</option>
+        <option value="straddle">Long Straddle</option>
+      </select>
+      <label>Spot ₹ <input type="number" id="pbSpot" value="24500" step="50"/></label>
+      <label>IV % <input type="number" id="pbSigma" value="15" step="1"/></label>
+      <label>DTE <input type="number" id="pbDays" value="21"/></label>
+      <button id="btnBuild" class="primary">Build Structure</button>
+    </div>
+    <div class="grid g2 mt">
+      <canvas id="payoffChart" height="200"></canvas>
+      <div id="structureStats"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════ BACKTEST ══════════════ -->
+<section id="panel-backtest" class="panel">
+  <h1>Backtest Lab</h1>
+  <div class="toolbar card wrap">
+    <input id="btSymbol" value="RELIANCE" class="w140 mono"/>
+    <select id="btStrategy">
+      <option value="supertrend_rsi">Supertrend + RSI</option>
+      <option value="breakout_pullback">Breakout Pullback</option>
+      <option value="bb_mean_reversion">Bollinger Mean Reversion</option>
+      <option value="ema_cross_adx">EMA Cross ADX</option>
+      <option value="weekly_momentum">Weekly Momentum</option>
+    </select>
+    <label>Capital ₹ <input type="number" id="btCapital" value="500000"/></label>
+    <label>Risk % <input type="number" id="btRisk" value="1" step="0.25"/></label>
+    <label>ATR× <input type="number" id="btAtr" value="2" step="0.5"/></label>
+    <label>Max hold d <input type="number" id="btHold" value="20"/></label>
+    <button id="btnBacktest" class="primary">▶ Run Backtest</button>
+    <span id="btStatus" class="muted small"></span>
+  </div>
+  <div class="grid g4 tiles" id="btMetricTiles"></div>
+  <div class="grid g2 mt">
+    <div class="card"><h3>Equity Curve vs Buy&Hold <i class="fi" data-f="cagr"></i></h3><canvas id="eqChart" height="190"></canvas></div>
+    <div class="card"><h3>Drawdown <i class="fi" data-f="max_drawdown"></i></h3><canvas id="ddChart" height="190"></canvas></div>
+  </div>
+  <div class="grid g2 mt">
+    <div class="card"><h3>R-Multiple Distribution <i class="fi" data-f="rr_ratio"></i></h3><canvas id="rHist" height="170"></canvas></div>
+    <div class="card"><h3>Trade Log <i class="fi" data-f="win_rate"></i></h3>
+      <div class="tbl-wrap"><table class="tbl tiny mono" id="btTrades"></table></div></div>
+  </div>
+</section>
+
+<!-- ══════════════ WHALES ══════════════ -->
+<section id="panel-whales" class="panel">
+  <h1>Whale Radar — institutional footprints</h1>
+  <div class="toolbar card">
+    <label>Lookback days <input type="number" id="whDays" value="3" min="1" max="10" class="w60"/></label>
+    <button id="btnWhaleTable" class="primary">🐋 Refresh Deals</button>
+    <span class="sep"></span>
+    <input id="whSymbol" placeholder="symbol e.g. RELIANCE" class="w160 mono"/>
+    <button id="btnWhaleScore">Score Symbol</button>
+  </div>
+  <div class="card"><h3>Bulk & Block Deals <i class="fi" data-f="whale_score"></i></h3>
+    <div class="tbl-wrap tall"><table class="tbl tiny mono" id="whaleTable"></table></div></div>
+  <div class="card mt hidden" id="whaleScoreCard">
+    <h3>Whale Score Breakdown <i class="fi" data-f="whale_score"></i></h3>
+    <div id="whaleScoreBody"></div>
+  </div>
+</section>
+
+<!-- ══════════════ RISK / PORTFOLIO ══════════════ -->
+<section id="panel-risk" class="panel">
+  <h1>Portfolio Construction & Risk Control</h1>
+  <div class="grid g2">
+    <div class="card">
+      <h3>Position Sizer <i class="fi" data-f="atr_position_size"></i></h3>
+      <div class="form-grid">
+        <label>Entry ₹ <input type="number" id="szEntry" value="2500" step="0.05"/></label>
+        <label>Stop ₹ <input type="number" id="szStop" value="2440" step="0.05"/></label>
+        <label>Capital ₹ <input type="number" id="szCap" value="500000"/></label>
+        <label>Risk % <input type="number" id="szRisk" value="1" step="0.25"/></label>
+      </div>
+      <button id="btnSize" class="primary mt8">Calculate</button>
+      <div id="sizeOut" class="mt8"></div>
+    </div>
+    <div class="card">
+      <h3>Kelly Optimizer <i class="fi" data-f="kelly_criterion"></i></h3>
+      <div class="form-grid">
+        <label>Win rate % <input type="number" id="klWin" value="55" max="99"/></label>
+        <label>Avg Win/Avg Loss <input type="number" id="klRR" value="1.8" step="0.1"/></label>
+        <label>Capital ₹ <input type="number" id="klCap" value="500000"/></label>
+      </div>
+      <button id="btnKelly" class="primary mt8">Optimize Size</button>
+      <div id="kellyOut" class="mt8"></div>
+    </div>
+    <div class="card">
+      <h3>VaR / CVaR Stress Test <i class="fi" data-f="var_historical"></i></h3>
+      <div class="form-grid">
+        <label>Symbols (CSV) <input id="varSyms" value="RELIANCE,TCS,HDFCBANK" class="w240 mono"/></label>
+        <label>Portfolio ₹ <input type="number" id="varVal" value="1000000"/></label>
+        <label>Horizon d <input type="number" id="varHor" value="5"/></label>
+        <label>Confidence % <input type="number" id="varAlpha" value="95"/></label>
+      </div>
+      <button id="btnVar" class="primary mt8">Run VaR</button>
+      <div id="varOut" class="mt8"></div>
+    </div>
+    <div class="card">
+      <h3>Portfolio Optimizer <i class="fi" data-f="hrp_cluster_var"></i></h3>
+      <label>Symbols (CSV)
+        <input id="poSymbols" value="RELIANCE,TCS,HDFCBANK,INFY,ITC,LT" class="w280 mono"/></label>
+      <button id="btnOptimize" class="primary mt8">Compute Weights</button>
+      <div class="grid g2 mt8">
+        <canvas id="allocChart" height="180"></canvas>
+        <canvas id="frontierChart" height="180"></canvas>
+      </div>
+      <div id="optOut" class="mt8"></div>
+    </div>
+  </div>
+  <div class="card mt">
+    <h3>Paper Book <i class="fi" data-f="fixed_fractional"></i></h3>
+    <div class="toolbar wrap">
+      <input id="poSym" placeholder="SYMBOL" class="w120 mono"/>
+      <select id="poSide"><option>BUY</option><option>SELL</option></select>
+      <input type="number" id="poQty" placeholder="Qty" class="w90"/>
+      <input type="number" id="poPrice" placeholder="Price" step="0.05" class="w110"/>
+      <button id="btnPaperOrder" class="primary">Place Paper Order</button>
+      <button id="btnPaperRefresh">Refresh</button>
+    </div>
+    <div class="grid g2">
+      <div class="tbl-wrap"><table class="tbl" id="paperPositions"></table></div>
+      <div class="tbl-wrap"><table class="tbl tiny mono" id="paperOrders"></table></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════ CASE STUDY ══════════════ -->
+<section id="panel-case" class="panel">
+  <h1>Case Study — <span id="csName" class="mono" style="color:var(--cyan)">Shree Refrigerations Ltd</span></h1>
+  <div class="toolbar card">
+    <button id="btnCaseBuild" class="primary">🔬 Build / Refresh Case Dossier</button>
+    <span id="caseStatus" class="muted small"></span>
+    <span class="grow"></span>
+    <label>Analyst note: <input id="noteText" placeholder="your observation…" class="w260"/></label>
+    <button id="btnSaveNote">💾 Save Note</button>
+  </div>
+
+  <div class="card cs-hero" id="csHero"></div>
+
+  <div class="grid g2 mt">
+    <div class="card"><h3>Price Action with Pattern Events
+      <i class="fi" data-f="volume_anomaly"></i></h3>
+      <div class="legend-chips" id="csLegend"></div>
+      <canvas id="csChart" height="240"></canvas></div>
+    <div class="card"><h3>Surge Forensics — last 10 sessions vs prior 60
+      <i class="fi" data-f="atr_percentile"></i></h3>
+      <div id="csForensics"></div></div>
+  </div>
+
+  <div class="grid g2 mt">
+    <div class="card"><h3>Why did it grow? — weighted hypotheses</h3><div id="csHypo"></div></div>
+    <div class="card"><h3>Risk Register</h3><ul id="csRisks" class="risklist small"></ul></div>
+  </div>
+
+  <div class="card mt"><h3>Detected Patterns (reusable building blocks)
+    <i class="fi" data-f="screener_composite"></i></h3>
+    <div class="tbl-wrap tall"><table class="tbl tiny mono" id="csPatterns"></table></div></div>
+
+  <div class="grid g2 mt">
+    <div class="card"><h3>Competitor Relative Strength vs Nifty (3m)
+      <i class="fi" data-f="relative_strength"></i></h3><canvas id="csCompChart" height="190"></canvas>
+      <div class="tbl-wrap mt8"><table class="tbl tiny" id="csCompTable"></table></div></div>
+    <div class="card"><h3>News & Knowledge Base <span class="muted small">(verify flags shown)</span></h3>
+      <div id="csNews" class="newsfeed"></div></div>
+  </div>
+
+  <div class="grid g2 mt">
+    <div class="card"><h3>Financials KB (curated)</h3><table class="tbl compact" id="csFin"></table></div>
+    <div class="card"><h3>Whale Score & Saved Notes</h3>
+      <div id="csWhaleBox"></div>
+      <div class="mt8 tbl-wrap"><table class="tbl tiny" id="csNotes"></table></div></div>
+  </div>
+
+  <details class="card mt"><summary class="mono muted">raw dossier JSON (audit trail)</summary>
+    <pre id="csRaw" class="mono small mt8" style="max-height:340px;overflow:auto"></pre></details>
+</section>
+
+<!-- ══════════════ VOLATILITY RADAR ══════════════ -->
+<section id="panel-radar" class="panel">
+  <h1>Volatility Radar — hottest instruments right now</h1>
+  <div class="toolbar card">
+    <button id="btnRadarScan" class="primary">🌡 Scan Instruments</button>
+    <span id="radarStatus" class="muted small"></span>
+    <span class="sep"></span>
+    <select id="buzzSymbol"></select>
+    <button id="btnBuzz">📣 Fetch Social Buzz</button>
+    <span class="grow"></span>
+    <span class="muted small">ranked by annualized vol · playbook auto-derived from vol percentile <i class="fi" data-f="vol_cone"></i></span>
+  </div>
+  <div class="card"><div class="tbl-wrap"><table class="tbl tiny mono clickable" id="radarTable"></table></div></div>
+
+  <div class="grid g2 mt hidden" id="studyWrap">
+    <div class="card"><h3 id="studyTitle">Instrument Study</h3><div id="studyBody"></div></div>
+    <div class="card"><h3>Volatility Cone — is vol cheap or rich?
+      <i class="fi" data-f="vol_cone"></i></h3><canvas id="coneChart" height="200"></canvas></div>
+  </div>
+
+  <div class="card mt hidden" id="buzzCard"><h3>Social & News Buzz <i class="fi" data-f="whale_score"></i></h3>
+    <div id="buzzBody" class="newsfeed"></div></div>
+</section>
+
+<!-- ══════════════ FORMULA LIBRARY ══════════════ -->
+<section id="panel-library" class="panel">
+  <h1>Formula Library — every calculation explained</h1>
+  <div class="toolbar card">
+    <input id="libSearch" placeholder="search formulas…" class="w260"/>
+    <span class="muted small">Click any formula to open its deep-dive: LaTeX math → derivation steps → nested dependencies → live worked example on real data.</span>
+  </div>
+  <div id="libContainer"></div>
+</section>
+
+</main><!-- /content -->
+</div><!-- /shell -->
+
+<!-- ══════════════ FORMULA MODAL ══════════════ -->
+<div id="formulaModal" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-head">
+      <span class="modal-title mono" id="fmTitle">formula</span>
+      <span class="grow"></span>
+      <span id="fmExampleCtl" class="hidden">
+        <label class="muted small">live example symbol:</label>
+        <input id="fmSymbol" value="RELIANCE" class="w120 mono"/>
+        <button id="fmReload" class="mini">↻ recompute</button>
+      </span>
+      <button id="fmClose" class="mini danger">✕ close</button>
+    </div>
+    <div class="modal-body" id="fmBody"></div>
+  </div>
+</div>
+
+<div id="toast" class="toast hidden"></div>
+<script src="/js/app.js"></script>
+</body>
+</html>

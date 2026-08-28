@@ -1,0 +1,20 @@
+{
+  "namespace": "shree_refrigerations",
+  "key": "symbol_resolution",
+  "saved_at": "2026-08-26T13:48:35",
+  "meta": {},
+  "payload": {
+    "resolved": true,
+    "method": "yahoo-search:SHREEREF.BO|query=Shree Refrigerations",
+    "symbol": "SHREEREF.BO",
+    "exchange": "BSE",
+    "name": "SHREE REFRIGERATIONS LIMITED",
+    "tried_candidates": [
+      "SHREE-REFRIG",
+      "SREFRIG",
+      "SHREEREF",
+      "SHREEFRIG",
+      "SHREREF"
+    ]
+  }
+}

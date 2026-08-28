@@ -1,0 +1,22 @@
+{
+  "cash": 475000.0,
+  "positions": {
+    "RELIANCE": {
+      "qty": 10,
+      "avg_price": 2500.0
+    }
+  },
+  "orders": [
+    {
+      "order_id": "P00001",
+      "time": "2026-08-27T12:42:00",
+      "symbol": "RELIANCE",
+      "side": "BUY",
+      "qty": 10,
+      "price": 2500.0,
+      "product": "CNC",
+      "tag": null
+    }
+  ],
+  "realized_pnl": 0.0
+}
