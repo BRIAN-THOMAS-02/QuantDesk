@@ -48,6 +48,7 @@
   <a data-panel="derivatives">📊 Derivatives</a>
   <a data-panel="regime">📡 Market Regime</a>
   <a data-panel="opportunity">🚀 Opportunities</a>
+  <a data-panel="riskmap">🧮 Risk Map</a>
   <a data-panel="library">ƒ Formula Library</a>
 </nav>
 
@@ -528,6 +529,51 @@
      <div class="card"><h3>Conviction vs distance-to-entry</h3><div id="oppScatWrap"><canvas id="oppScatChart"></canvas></div></div>
    </div>
 </section>
+
+<!-- ══════════════ RISK MAP (correlation · drawdown · concentration) ══════════════ -->
+<section id="panel-riskmap" class="panel">
+  <h1>Risk Map — correlation · drawdown · concentration</h1>
+   <div class="toolbar card">
+     <label class="inline small">symbols (CSV)
+       <input id="rmSyms" value="RELIANCE,TCS,HDFCBANK,INFY,ITC,SBIN" class="w260 mono"/>
+     </label>
+     <label class="inline small">horizon (d)
+       <input id="rmHor" type="number" value="5" class="w80">
+     </label>
+     <label class="inline small">confidence %
+       <input id="rmAlpha" type="number" value="95" class="w80">
+     </label>
+     <button id="btnRiskMap" class="primary">🧮 Map Risk</button>
+     <span id="rmStatus" class="muted small"></span>
+     <span class="grow"></span>
+     <span class="muted small">VaR/CVaR + correlation clusters + drawdown map</span>
+   </div>
+   <div id="rmKpis" class="grid g4 mt tiles"></div>
+   <div class="grid g2 mt">
+     <div class="card"><h3>Correlation matrix <i class="fi" data-f="correlation"></i></h3>
+       <div id="rmCheat" class="heatmap corr-heat"></div>
+     </div>
+     <div class="card"><h3>Underwater chart (portfolio drawdown)</h3>
+       <div id="rmUnderwaterWrap"><canvas id="rmUnderwaterChart"></canvas></div>
+     </div>
+     <div class="card"><h3>Per-symbol max drawdown</h3>
+       <div id="rmDdBarsWrap"><canvas id="rmDdBars"></canvas></div>
+     </div>
+     <div class="card"><h3>VaR simulated return distribution</h3>
+       <div id="rmDistWrap"><canvas id="rmDistChart"></canvas></div>
+     </div>
+   </div>
+   <div class="grid g2 mt">
+     <div class="card"><h3>Concentration metrics</h3>
+       <div id="rmConc" class="dv-alpha"></div>
+     </div>
+     <div class="card"><h3>High-correlation clusters</h3>
+       <div id="rmPairs"></div>
+     </div>
+   </div>
+   <p class="muted small mt8" id="rmNote"></p>
+</section>
+
 
 
 <!-- ══════════════ FORMULA LIBRARY ══════════════ -->

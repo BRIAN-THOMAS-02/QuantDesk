@@ -224,6 +224,36 @@ class TestRisk:
         assert not ok and ">" in msg
 
 
+    def test_correlation_risk_detects_cluster(self):
+        from risk.manager import RiskManager
+        idx = pd.bdate_range("2024-01-01", periods=200)
+        rng = np.random.default_rng(1)
+         # X and Y are near-collinear; Z is independent.
+        base = rng.normal(0, 1, size=200)
+        x = base + rng.normal(0, .01, 200)
+        y = 0.9 * base + rng.normal(0, .01, 200)
+        z = rng.normal(0, 1, 200)
+        rets = pd.DataFrame({"X": x, "Y": y, "Z": z}, index=idx)
+        r = RiskManager.correlation_risk(rets, threshold=0.75)
+        assert r["high_corr_pairs"], "expected a high-corr pair among X/Y"
+        assert all(set([p["a"], p["b"]]) <= {"X", "Y"}
+                    for p in r["high_corr_pairs"])
+        assert "advice" in r
+
+    def test_mc_var_distribution_flag(self):
+        idx = pd.bdate_range("2024-01-01", periods=300)
+        rng = np.random.default_rng(3)
+        rets = pd.Series(rng.normal(0, 0.01, 300), index=idx)
+        base = mc_var(rets, alpha=0.95)
+        with_dist = mc_var(rets, alpha=0.95, distribution=True)
+        assert "distribution" not in base
+        d = with_dist["distribution"]
+        assert len(d["buckets"]) == len(d["counts"]) == 50
+        assert sum(d["counts"]) == 50_000
+        assert d["cvar_line_pct"] > d["var_line_pct"]      # CVaR deeper than VaR
+        assert "var_line_pct" in d and "cvar_line_pct" in d
+
+
 # ------------------------------------------------------------------ #
 # Backtest engine smoke
 # ------------------------------------------------------------------ #

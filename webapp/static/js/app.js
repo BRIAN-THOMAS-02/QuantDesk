@@ -137,6 +137,7 @@ $$("#sideNav a").forEach(a=>a.onclick=()=>{
   if(a.dataset.panel==="derivatives"&&!window._dvLoaded){window.derivativesPanel&&window.derivativesPanel();window._dvLoaded=true;}
   if(a.dataset.panel==="regime"&&!window._rgLoaded){window.regimePanel&&window.regimePanel();window._rgLoaded=true;}
   if(a.dataset.panel==="opportunity"&&!window._oppLoaded){window.opportunityPanel&&window.opportunityPanel();window._oppLoaded=true;}
+  if(a.dataset.panel==="riskmap"&&!window._rmLoaded){window.riskMapPanel&&window.riskMapPanel();window._rmLoaded=true;}
 });
 $("#btnGoSymbol").onclick=()=>{$("#chSymbol").value=$("#globalSymbol").value.trim().toUpperCase();
   $$("#sideNav a").find(a=>a.dataset.panel==="charts").click();};

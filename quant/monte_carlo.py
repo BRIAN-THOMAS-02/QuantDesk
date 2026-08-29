@@ -38,8 +38,8 @@ def mc_option_price(S0: float, K: float, T: float, r: float, sigma: float,
 
 
 def mc_var(returns, weights=None, portfolio_value: float = 1_000_000,
-           horizon_days: int = 1, alpha: float = 0.95,
-           n_sims: int = 50_000, seed: int = 7) -> dict:
+   horizon_days: int = 1, alpha: float = 0.95,
+   n_sims: int = 50_000, seed: int = 7, distribution: bool = False) -> dict:
     """Parametric-bootstrap VaR/CVaR from historical daily returns.
 
     returns: DataFrame (cols=assets) or Series for single asset.
@@ -55,17 +55,26 @@ def mc_var(returns, weights=None, portfolio_value: float = 1_000_000,
     mu, cov = R.mean(axis=0), np.atleast_2d(np.cov(R.T))
     rng = np.random.default_rng(seed)
     sims = rng.multivariate_normal(mu, cov, size=n_sims)
-    port_rets = sims @ w * horizon_days
+    port_rets = (sims @ w * horizon_days).reshape(-1)
     var_cut = np.percentile(port_rets, (1 - alpha) * 100)
-
-    return {
-        "var_amount": round(float(-var_cut * portfolio_value), 2),
-        "cvar_amount": round(float(-port_rets[port_rets <= var_cut].mean() * portfolio_value), 2),
-        "var_pct": round(float(-var_cut * 100), 3),
-        "cvar_pct": round(float(-port_rets[port_rets <= var_cut].mean() * 100), 3),
-        "alpha": alpha, "horizon_days": horizon_days,
-        "portfolio_value": portfolio_value,
-    }
+    out = {
+         "var_amount": round(float(-var_cut * portfolio_value), 2),
+         "cvar_amount": round(float(-port_rets[port_rets <= var_cut].mean() * portfolio_value), 2),
+         "var_pct": round(float(-var_cut * 100), 3),
+         "cvar_pct": round(float(-port_rets[port_rets <= var_cut].mean() * 100), 3),
+         "alpha": alpha, "horizon_days": horizon_days,
+         "portfolio_value": portfolio_value,
+     }
+    if distribution:
+        counts, edges = np.histogram(port_rets, bins=50)
+        out["distribution"] = {
+             "buckets": [round(float((e + e2) / 2 * 100), 3) for e, e2 in
+                          np.column_stack([edges[:-1], edges[1:]])],
+             "counts": [int(c) for c in counts],
+             "var_line_pct": round(float(-var_cut * 100), 3),
+             "cvar_line_pct": round(float(-port_rets[port_rets <= var_cut].mean() * 100), 3),
+        }
+    return out
 
 
 def terminal_distribution_stats(paths: np.ndarray) -> dict:

@@ -74,7 +74,7 @@ class RiskManager:
                       weights: list[float] | None = None,
                       alpha: float = 0.95, horizon_days: int = 1) -> dict:
         res = mc_var(returns, weights=weights, portfolio_value=value or self.capital,
-                     horizon_days=horizon_days, alpha=alpha)
+                     horizon_days=horizon_days, alpha=alpha, distribution=True)
         res["interpretation"] = (
             f"With {alpha:.0%} confidence you lose less than "
             f"₹{res['var_amount']:,.0f} in {horizon_days}d; "

@@ -699,6 +699,73 @@ def portfolio_opt(symbols: str, method: str = "all"):
                             "matrix": corr.values.tolist()}}
 
 
+
+@app.get("/api/risk/corrmap")
+def risk_corrmap(symbols: str, horizon_days: int = 5, alpha: float = 0.95,
+                 value: float | None = None, corr_threshold: float = 0.75):
+    syms = [s.strip().upper() for s in symbols.split(",") if s.strip()][:12]
+    if len(syms) < 2:
+        raise HTTPException(422, "need >=2 symbols")
+    cols = {}
+    for s in syms:
+        h = df_history(s, "2y")
+        cols[s] = h.close
+    prices = pd.DataFrame(cols).dropna(how="any")
+    if prices.empty or len(prices) < 40:
+        raise HTTPException(422, "insufficient overlapping price history")
+    rets = prices.pct_change().dropna(how="any")
+    value = value or settings.CAPITAL
+    n = len(syms)
+
+    var_out = RiskManager(value).portfolio_var(
+        rets, value=value, alpha=alpha, horizon_days=horizon_days)
+
+    corr = rets.corr()
+    clusters = RiskManager.correlation_risk(rets, threshold=corr_threshold)
+    triu = corr.where(np.triu(np.ones(corr.shape).astype(bool), k=1))
+    avg_corr = float(triu.stack().mean())
+
+    eff_n = 1 + (n - 1) * (1 + avg_corr) / 2
+
+    eq = (1 + rets.mean(axis=1)).cumprod()
+    dd_port = (eq / eq.cummax() - 1) * 100
+    ts_in = dd_port.index
+    step = max(1, len(ts_in) // 120)
+    dd_down = dd_port.iloc[::step]
+    per_symbol = []
+    for s in syms:
+        p = prices[s]
+        dd_s = (p / p.cummax() - 1) * 100
+        per_symbol.append({"symbol": s,
+                           "max_dd_pct": round(float(dd_s.min()), 2),
+                           "current_dd_pct": round(float(dd_s.iloc[-1]), 2)})
+    per_symbol.sort(key=lambda r: r["max_dd_pct"])
+
+    return {
+          "generated_at": datetime.now(timezone.utc).isoformat(),
+          "symbols": syms, "n": n,
+          "var": var_out,
+          "correlation": {"labels": corr.columns.tolist(),
+                          "matrix": corr.round(2).values.tolist(),
+                          "avg_pair_corr": round(avg_corr, 3),
+                          "high_corr_pairs": clusters["high_corr_pairs"],
+                          "advice": clusters["advice"]},
+          "drawdown": {
+              "ts": [str(t.date()) for t in dd_down.index],
+              "dd_pct": [round(float(v), 2) for v in dd_down.values],
+              "max_dd_pct": round(float(dd_port.min()), 2),
+              "per_symbol": per_symbol},
+          "concentration": {
+              "hhi": round(10000.0 / n, 1),
+              "max_weight_pct": round(100.0 / n, 1),
+              "eff_n": round(eff_n, 1),
+              "avg_pair_corr": round(avg_corr, 3),
+              "advice": ("high inter-correlation \u2014 positions behave as ONE bet"
+                        if avg_corr > corr_threshold else
+                         "diversified enough to treat as distinct exposures"),
+          },
+      }
+
 # =================================================================== #
 # PAPER BOOK
 # =================================================================== #

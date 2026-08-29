@@ -151,4 +151,19 @@ User asked for a bigger, option-rich analytical surface with diverse charts. Bui
 - A python "read-modify-write" edit to `webapp/static/index.html` did a silent partial match and wiped the 414-line file to 0 bytes (the file was uncommitted since the single initial commit, so nothing was recoverable from the working tree). Restored via `git checkout -- webapp/static/index.html`, which **reverted to HEAD and lost the prior session's insight-panel nav/section + all in-progress UI edits**.
 - Everything else (analysis/, quant/, data/, research/, app.js, style.css, server.py) survived because it was already on disk. **All panels were then rebuilt from scratch** in this session.
 - **Lesson / guardrail**: for uncommitted files, keep a `cp` backup before any destructive "replace" python edit; assert the marker actually matched (the partial-match returned "done" but matched 0 chars). Prefer `oldString`/`newString` edits that fail loudly over substring `str.replace` that silently no-ops.
-- **Remaining scope**: VaR/CVaR + correlation/drawdown risk expansion (option 6) still open — see `risk/manager.py` (has `var_atr_floor`, no explicit VaR/CVaR/correlation yet).
+- **Remaining scope**: VaR/CVaR + correlation/drawdown risk expansion — **✅ DONE** (see below).
+
+### 🧮 Risk Map — correlation · drawdown · concentration (✅ DONE — 2026-08-29)
+Built a dedicated **Risk Map** page that turns the previously-dead `risk/manager.py` helpers (`correlation_risk`, drawdown, concentration) into a live visualized panel.
+- **Backend**
+    - `quant/monte_carlo.py`: `mc_var(...)` gains an optional `distribution=True` flag that returns a 50-bin return histogram + VaR/CVaR line markers. Fixed a swapped `np.histogram` unpack (was `edges, counts` → now `counts, edges`).
+    - `risk/manager.py`: `portfolio_var` forwards `distribution=True` so every VaR call now also yields the simulated return distribution.
+    - `webapp/server.py`: new **`GET /api/risk/corrmap`** composite endpoint (VaR/CVaR + correlation clusters + underwater drawdown + concentration: HHI / max-weight / effective-#-bets / avg pairwise corr). 422s on too few overlapping bars; off-season-safe.
+- **Frontend**
+    - `webapp/static/js/panels.js`: new `window.riskMapPanel()` renders 4 KPI tiles (VaR / CVaR / avg-corr / max-DD), a **6×6 correlation matrix** (diverging DOM heatmap, red=low→green=high), an **underwater chart** (equal-weight portfolio drawdown, ~120 points), a **per-symbol max-DD bar** (worst-first), a **VaR return-distribution histogram** with VaR/CVaR marker bars, **4 concentration stat cells** (HHI, max weight, effective #bets, avg pairwise corr), and a high-correlation cluster table with advice.
+    - `webapp/static/index.html`: new `🧮 Risk Map` nav link + `#panel-riskmap` section (symbols + horizon + confidence controls). Default symbols = `RELIANCE,TCS,HDFCBANK,INFY,ITC,SBIN` (all valid; `LR`/`TATAMOTORS` fail yfinance resolution).
+    - `webapp/static/css/style.css`: `.corr-heat / .corr-row / .corr-rowh / .corr-cell` (flex square grid) added.
+    - `webapp/static/js/app.js`: `riskmap` auto-load nav gate (`_rmLoaded`).
+- **Tests**: `tests/test_quant.py` +2 (`test_correlation_risk_detects_cluster`, `test_mc_var_distribution_flag`). **42/42 passing.** `mc_var` histogram bug fixed as a side effect (the test caught it).
+- **Verified in-browser** (Playwright, off-season): 6 KPIs, 36-cell correlation matrix, 3 charts (all painted 474×237), 4 concentration cells, TCS–INFY 0.76 cluster, **0 console errors.**
+

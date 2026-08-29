@@ -426,4 +426,116 @@ function insightVerdict(ins) {
 }
 $("#btnOpp")?.addEventListener("click", () => { window._oppLoaded = false; window.opportunityPanel(); });
 $("#oppStrat")?.addEventListener("change", () => { window._oppLoaded = false; window.opportunityPanel(); });
+
+
+/* ── RISK MAP (correlation · drawdown · concentration) ── */
+window.riskMapPanel = async function () {
+   const st = $("#rmStatus"), grid = $("#rmCheat");
+   const syms = ($("#rmSyms").value || "").split(",").map(s => s.trim().toUpperCase()).filter(Boolean);
+   const horizon = +($("#rmHor").value || 5);
+   const alpha = (+($("#rmAlpha").value || 95)) / 100;
+   st.textContent = `computing risk for ${syms.length} instruments…`;
+   try {
+     const q = `symbols=${encodeURIComponent(syms.join(","))}&horizon_days=${horizon}&alpha=${alpha}`;
+     const d = await api(`/risk/corrmap?${q}`);
+     const v = d.var, c = d.correlation, dd = d.drawdown, cc = d.concentration;
+
+      $("#rmKpis").innerHTML =
+       kpi("VaR", "₹" + num(v.var_amount, 0), `${Math.round(v.alpha*100)}% conf · ${v.horizon_days}d`, "neu")
+        + kpi("CVaR", "₹" + num(v.cvar_amount, 0), "expected shortfall", "neg")
+        + kpi("Avg correlation", num(c.avg_pair_corr, 2), `eff ${cc.eff_n} of ${d.n} bets`, "neu")
+        + kpi("Max drawdown", num(dd.max_dd_pct, 1) + "%", "portfolio 2y", "neg");
+
+      // correlation DOM heatmap (diverging: red=low, green=high)
+      grid.innerHTML = c.labels.map((sym, i) =>
+       `<div class="corr-row"><div class="corr-rowh">${esc(sym)}</div>`
+        + c.labels.map((_, j) => {
+          const val = c.matrix[i][j];
+          const bg = i === j ? "rgba(120,140,170,.35)" : heatColor(val, -1, 1);
+          return `<div class="corr-cell" title="${esc(sym)} · ${esc(c.labels[j])} = ${val}"
+             style="background:${bg}">${val}</div>`;
+        }).join("") + `</div>`).join("");
+
+      // underwater drawdown chart (equal-weighted portfolio, ~120 sampled points)
+      await new Promise(r => setTimeout(r, 0));
+      regChart("rmUnderwater", () => new Chart($("#rmUnderwaterChart"), {
+         type: "line",
+         data: { labels: dd.ts, datasets: [{ label: "drawdown %", data: dd.dd_pct,
+            borderColor: "#ef4444", backgroundColor: "rgba(239,68,68,.14)",
+            borderWidth: 1.5, pointRadius: 0, fill: 0 }] },
+         options: { scales: {
+            x: { grid: { display: false }, ticks: { color: TICK, maxTicksLimit: 8 } },
+            y: { grid: { color: GRID }, ticks: { color: TICK, callback: x => x + "%" },
+              title: { display: true, text: "underwater %", color: "#8a97ad" } } },
+            plugins: { legend: { display: false } } } }));
+
+      // per-symbol max drawdown bars (worst first)
+      await new Promise(r => setTimeout(r, 0));
+      regChart("rmDdBars", () => new Chart($("#rmDdBars"), {
+         type: "bar",
+         data: { labels: dd.per_symbol.map(r => r.symbol),
+            datasets: [{ label: "max DD %", data: dd.per_symbol.map(r => r.max_dd_pct),
+              backgroundColor: "rgba(239,68,68,.65)", borderWidth: 0 }] },
+         options: { indexAxis: "y",
+            scales: { x: { grid: { color: GRID }, ticks: { color: TICK, callback: x => x + "%" } },
+              y: { grid: { display: false }, ticks: { color: "#8a97ad" } } },
+            plugins: { legend: { display: false } } } }));
+
+      // VaR simulated-distribution histogram + VaR/CVaR marker bars
+      const dist = v.distribution;
+      if (dist && dist.buckets.length) {
+       await new Promise(r => setTimeout(r, 0));
+        const top = Math.max.apply(null, dist.counts) || 1;
+       const varBar = dist.buckets.map(b => Math.abs((+b) - dist.var_line_pct) < 0.12 ? top : null);
+       const cvarBar = dist.buckets.map(b => Math.abs((+b) - dist.cvar_line_pct) < 0.12 ? top : null);
+        regChart("rmDist", () => new Chart($("#rmDistChart"), {
+          type: "bar",
+          data: { labels: dist.buckets.map(b => (+b).toFixed(1) + "%"),
+            datasets: [
+               { label: "simulated returns", data: dist.counts,
+                backgroundColor: "rgba(56,189,248,.55)", borderWidth: 0 },
+               { label: `VaR ${Math.round(v.alpha*100)}%`, data: varBar,
+                backgroundColor: "#f59e0b", borderWidth: 0, barPercentage: 0.5 },
+               { label: "CVaR", data: cvarBar, backgroundColor: "#ef4444",
+                borderWidth: 0, barPercentage: 0.5 } ] },
+            options: { scales: {
+              x: { grid: { display: false }, ticks: { color: TICK, maxTicksLimit: 10 } },
+              y: { grid: { color: GRID }, ticks: { color: TICK },
+                title: { display: true, text: "frequency", color: "#8a97ad" } } },
+              plugins: { legend: LG } } }));
+      }
+
+      // concentration stat cells
+       $("#rmConc").innerHTML =
+        statCell("HHI index", num(cc.hhi, 1),
+          cc.hhi < 1500 ? "diversified" : cc.hhi < 2500 ? "moderate" : "concentrated", "neu")
+        + statCell("Max single weight", num(cc.max_weight_pct, 1) + "%", "equal-weighted", "neu")
+        + statCell("Effective # bets", cc.eff_n, `of ${d.n} nominal`,
+          cc.eff_n < 1.5 * d.n ? "neg" : "pos")
+        + statCell("Avg pairwise corr", num(cc.avg_pair_corr, 2), cc.advice,
+          cc.avg_pair_corr > 0.75 ? "neg" : cc.avg_pair_corr > 0.5 ? "neu" : "pos");
+
+      // high-correlation pairs table
+      const pairs = c.high_corr_pairs || [];
+       $("#rmPairs").innerHTML = pairs.length
+        ? `<table class="tbl"><tr><th>A</th><th>B</th><th>corr</th></tr>`
+          + pairs.map(p => `<tr><td class="mono">${esc(p.a)}</td><td class="mono">${esc(p.b)}</td>
+             <td class="num neg">${num(p.corr, 2)}</td></tr>`).join("") + `</table>
+          <p class="muted small mt8">${esc(c.advice)}</p>`
+        : `<p class="muted small">No pair exceeds the correlation
+          threshold — positions are distinct exposures.</p>`;
+
+       $("#rmNote").textContent = `${d.n} instruments · ${v.horizon_days}d horizon · `
+        + `${Math.round(v.alpha*100)}% conf · generated `
+        + new Date(d.generated_at || Date.now()).toLocaleTimeString("en-IN");
+      st.textContent = "risk map @ " + new Date().toLocaleTimeString("en-IN");
+   } catch (e) {
+      st.textContent = "";
+      $("#rmKpis").innerHTML += kpi("Error", "—", esc(e.message), "neg");
+   }
+};
+$("#btnRiskMap")?.addEventListener("click", () => { window._rmLoaded = false; window.riskMapPanel(); });
+$("#rmSyms")?.addEventListener("change", () => { window._rmLoaded = false; window.riskMapPanel(); });
+$("#rmHor")?.addEventListener("change", () => { window._rmLoaded = false; window.riskMapPanel(); });
+$("#rmAlpha")?.addEventListener("change", () => { window._rmLoaded = false; window.riskMapPanel(); });
 })();

@@ -315,3 +315,13 @@ details.card summary{cursor:pointer;font-weight:600}
 .statcell .sc-label{font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
 .statcell .sc-value{font-size:19px;font-weight:800;font-family:'JetBrains Mono',monospace;margin-top:3px}
 .statcell .sc-sub{font-size:10.5px;color:var(--muted);margin-top:2px}
+
+/* ── correlation matrix heatmap (flex square grid) ── */
+.corr-heat{display:flex;flex-direction:column;gap:3px;font-size:11px}
+.corr-row{display:flex;gap:3px;align-items:stretch}
+.corr-rowh{width:78px;flex:0 0 78px;font-family:'JetBrains Mono',monospace;font-size:11px;
+  display:flex;align-items:center;color:var(--muted);font-weight:700}
+.corr-cell{flex:1;aspect-ratio:1;display:flex;align-items:center;justify-content:center;
+  border-radius:5px;font-family:'JetBrains Mono',monospace;font-size:10.5px;color:#0b0e14;
+  border:1px solid rgba(0,0,0,.15);min-width:0}
+
