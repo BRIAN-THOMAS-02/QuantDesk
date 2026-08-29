@@ -155,8 +155,11 @@ label{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--muted
 .tv-chart{height:400px}.tv-pane{height:110px}
 .tv-sub{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
 .side-card h3{justify-content:flex-start}
-#indReadout .ind-row{display:flex;justify-content:space-between;padding:7px 4px;
-  border-bottom:1px solid rgba(35,43,64,.5);font-size:13px;align-items:center}
+.ind-row{display:flex;justify-content:space-between;align-items:center;gap:10px;
+  padding:7px 4px;border-bottom:1px solid rgba(35,43,64,.5);font-size:13px}
+.ind-row .muted{color:var(--muted)}
+.ind-row b.mono{color:var(--text)}
+#indReadout .ind-row:hover,.structureStats .ind-row:hover{background:rgba(56,189,248,.04)}
 
 /* misc */
 .toast{position:fixed;bottom:24px;right:24px;z-index:200;background:var(--card2);
@@ -229,3 +232,86 @@ details.card summary{cursor:pointer;font-weight:600}
 .stat-block .mini-bar>div{height:100%;border-radius:99px}
 .callout{margin-top:12px;background:rgba(56,189,248,.06);border-left:3px solid var(--cyan);
   padding:10px 13px;border-radius:8px;font-size:12.5px;line-height:1.75}
+
+/* ── regime insight card ── */
+.insight{margin-top:14px;border:1px solid var(--line);border-radius:12px;overflow:hidden;
+  background:linear-gradient(180deg,rgba(26,32,50,.5),rgba(20,25,38,.3))}
+.insight.pos{border-left:4px solid var(--green)}
+.insight.neg{border-left:4px solid var(--red)}
+.insight.neu{border-left:4px solid var(--amber)}
+.insight-head{display:flex;justify-content:space-between;align-items:center;
+  padding:11px 14px;background:rgba(56,189,248,.05);border-bottom:1px solid var(--line)}
+.insight-head .mono{font-size:15px;font-weight:700;color:var(--txt)}
+.insight-conf{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+.insight-verdict{padding:12px 14px;font-size:13.5px;line-height:1.6;border-bottom:1px solid var(--line)}
+.insight-verdict.pos{color:#7ee7a8} .insight-verdict.neg{color:#fca5a5} .insight-verdict.neu{color:#fcd28c}
+.insight-cols{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line)}
+.insight-cols>div{background:var(--card);padding:10px 14px}
+.insight-k{font-size:10.5px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:5px;font-weight:700}
+.insight-k.pos{color:var(--green)} .insight-k.neg{color:var(--red)}
+.insight-cols ul{list-style:none;padding:0;margin:0;font-size:12.5px;line-height:1.55}
+.insight-cols li{padding:2px 0;padding-left:14px;text-indent:-14px}
+.insight-cols li::before{content:"›";color:var(--cyan);margin-right:6px}
+.insight-state{padding:9px 14px;font-size:11.5px;color:var(--muted);background:rgba(0,0,0,.15);
+  border-bottom:1px solid var(--line);line-height:1.7}
+.insight-hz{border-top:1px solid var(--line)}
+.insight-hz summary{padding:9px 14px;font-size:12px;color:var(--cyan);cursor:pointer;font-weight:600}
+.insight-hz-body{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);padding:0}
+.insight-hz-body>div{background:var(--card);padding:10px 14px}
+.hz-list{list-style:none;padding:0;margin:0;font-size:12px;line-height:1.7}
+.hz-list li{color:var(--txt)} .hz-list li b{color:var(--cyan);margin-right:6px}
+
+/* ── multi-source buzz ── */
+.buzz-head{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px}
+.buzz-head>div{background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:9px 11px}
+.buzz-head .k{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:4px}
+.buzz-head .v{font-size:18px;font-weight:800}.buzz-head .v .muted{font-size:12px;font-weight:400}
+.buzz-sources{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px}
+.buzz-list{display:flex;flex-direction:column;gap:9px;max-height:460px;overflow-y:auto;padding-right:3px}
+.news-item.rel{border-left:3px solid var(--green)}
+.news-item .open{color:var(--cyan);text-decoration:none;font-size:12px}
+.news-item .open:hover{text-decoration:underline}
+.badge.ok{color:var(--green);border-color:var(--green)}
+.badge.warn{color:var(--amber);border-color:var(--amber)}
+
+/* ── regime insights panel ── */
+.g5{grid-template-columns:repeat(5,1fr)}
+@media(max-width:1100px){.g5{grid-template-columns:repeat(2,1fr)}}
+.insp-head{display:flex;justify-content:space-between;align-items:center;gap:16px;
+  padding:14px 16px;background:rgba(56,189,248,.05);border-bottom:1px solid var(--line)}
+.insp-regime{font-size:17px;font-weight:800;color:var(--txt)}
+.insp-horizon{font-size:11.5px;color:var(--muted);margin-top:3px}
+.insp-gauge{width:170px;height:95px}
+.insp-tiles .tile{text-align:left}
+.insp-check{display:grid;grid-template-columns:1fr 1fr;gap:7px 18px;margin-top:4px}
+@media(max-width:1100px){.insp-check{grid-template-columns:1fr}}
+.insp-gate{display:flex;align-items:flex-start;gap:8px;font-size:12.5px;color:var(--txt);
+  padding:5px 0;border-bottom:1px solid rgba(35,43,64,.5);cursor:pointer;line-height:1.5}
+.insp-gate input{margin-top:2px;accent-color:var(--cyan)}
+.insp-gate.done{color:var(--green)}
+.insp-gate.done input{accent-color:var(--green)}
+/* ── shared tile base (KPI cards in any panel) ── */
+.tile{background:linear-gradient(160deg,var(--card),var(--bg2));border:1px solid var(--line);
+  border-radius:12px;padding:12px 14px;position:relative}
+/* ── sector heatmap ── */
+.heatmap{display:flex;flex-direction:column;gap:12px}
+.hm-group{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.hm-sec{font-size:12px;font-weight:700;color:var(--txt);letter-spacing:.03em;margin-bottom:8px;
+  border-left:3px solid var(--cyan);padding-left:8px}
+.hm-sec .muted{font-weight:400;font-size:11px}
+.hm-cells{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:5px}
+.hm-cell{border-radius:8px;padding:6px 8px;color:#0b0e14;cursor:default;transition:transform .1s;
+  border:1px solid rgba(0,0,0,.15);min-height:42px;display:flex;flex-direction:column;justify-content:center}
+.hm-cell:hover{transform:scale(1.04);z-index:2;box-shadow:0 4px 14px rgba(0,0,0,.4)}
+.hm-sym{font-size:11px;font-weight:700;font-family:'JetBrains Mono',monospace;line-height:1.1}
+.hm-val{font-size:12.5px;font-weight:700;font-family:'JetBrains Mono',monospace}
+/* ── horizontal separator rule used in signal/insight bodies ── */
+.sep-h{border:none;border-top:1px solid var(--line);margin:12px 0}
+/* ── alpha/beta stat block (derivatives) ── */
+.dv-alpha{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+@media(max-width:1100px){.dv-alpha{grid-template-columns:repeat(2,1fr)}}
+.statcell{background:linear-gradient(160deg,var(--card),var(--bg2));border:1px solid var(--line);
+  border-radius:10px;padding:10px 12px}
+.statcell .sc-label{font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.statcell .sc-value{font-size:19px;font-weight:800;font-family:'JetBrains Mono',monospace;margin-top:3px}
+.statcell .sc-sub{font-size:10.5px;color:var(--muted);margin-top:2px}

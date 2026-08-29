@@ -42,6 +42,12 @@
   <a data-panel="risk">⚖ Portfolio & Risk</a>
   <a data-panel="case">🔬 Case Study</a>
   <a data-panel="radar">🌡 Volatility Radar</a>
+  <a data-panel="decision">🎯 Decision</a>
+  <a data-panel="insight">🧭 Regime Insights</a>
+  <a data-panel="heatmap">🌐 Universe & Heatmap</a>
+  <a data-panel="derivatives">📊 Derivatives</a>
+  <a data-panel="regime">📡 Market Regime</a>
+  <a data-panel="opportunity">🚀 Opportunities</a>
   <a data-panel="library">ƒ Formula Library</a>
 </nav>
 
@@ -310,7 +316,7 @@
     <button id="btnCaseBuild" class="primary">🔬 Build / Refresh Case Dossier</button>
     <span id="caseStatus" class="muted small"></span>
     <span class="grow"></span>
-    <label>Analyst note: <input id="noteText" placeholder="your observation…" class="w260"/></label>
+    <label>Analyst note: <input id="noteText" placeholder="your observation…" class="w240"/></label>
     <button id="btnSaveNote">💾 Save Note</button>
   </div>
 
@@ -378,11 +384,157 @@
     <div id="buzzBody" class="newsfeed"></div></div>
 </section>
 
+
+<!-- ═══════════════ REGIME INSIGHTS ═══════════════ -->
+<section id="panel-insight" class="panel">
+    <h1>Regime Insights — actionable verdict <i class="fi" data-f="fii_dii_regime_score"></i></h1>
+    <div class="toolbar card">
+      <label class="inline">Horizon
+        <select id="insHorizon">
+          <option value="intraday">Intraday</option>
+          <option value="swing" selected>Swing</option>
+          <option value="position">Position</option>
+        </select>
+      </label>
+      <label class="inline">Side
+        <select id="insSide">
+          <option value="0">Long / Short</option>
+          <option value="1">Long only</option>
+          <option value="-1">Short only</option>
+        </select>
+      </label>
+      <button id="btnInsight" class="primary">🧭 Analyze</button>
+      <span id="insStatus" class="muted small"></span>
+      <span class="grow"></span>
+      <span class="muted small">regime classification → verdict → confirmations → 18-point discipline checklist</span>
+    </div>
+    <div id="insBody"><p class="muted small">Click <b>Analyze</b> to read the regime and get an actionable, gated verdict.</p></div>
+</section>
+
+
+<!-- ═══════════════ DECISION DASHBOARD ═══════════════ -->
+<section id="panel-decision" class="panel">
+   <h1>Decision Dashboard — what to do right now <i class="fi" data-f="fii_dii_regime_score"></i></h1>
+   <div class="toolbar card">
+     <label class="inline">Horizon
+       <select id="decHorizon">
+         <option value="intraday">Intraday</option>
+         <option value="swing" selected>Swing</option>
+         <option value="position">Position</option>
+       </select>
+     </label>
+     <label class="inline">Bias
+       <select id="decSide">
+         <option value="0">Long / Short</option>
+         <option value="1">Long only</option>
+         <option value="-1">Short only</option>
+       </select>
+     </label>
+     <button id="btnDecision" class="primary">🎯 Decide</button>
+     <span id="decStatus" class="muted small"></span>
+     <span class="grow"></span>
+     <span class="muted small">regime verdict → best opportunities → gated action plan</span>
+   </div>
+   <div id="decBody"><p class="muted small">Click <b>Decide</b> to assemble the regime verdict, top opportunities and a gated action plan.</p></div>
+</section>
+
+<!-- ═══════════════ UNIVERSE & HEATMAP ═══════════════ -->
+<section id="panel-heatmap" class="panel">
+   <h1>Stock Universe & Sector Heatmap <i class="fi" data-f="relative_strength"></i></h1>
+   <div class="toolbar card">
+     <label class="inline">Metric
+       <select id="hmMetric">
+         <option value="ret_3m_pct">3-month % return</option>
+         <option value="rs_vs_nifty_pct">Relative strength vs NIFTY</option>
+         <option value="change_pct">Last session change %</option>
+       </select>
+     </label>
+     <button id="btnHeatmap" class="primary">🌐 Load Universe</button>
+     <span id="hmStatus" class="muted small"></span>
+     <span class="grow"></span>
+     <label class="inline small">min <input type="number" id="hmTop" value="0" min="0" max="200" class="w60"/></label>
+   </div>
+   <div id="heatGrid" class="heatmap"></div>
+   <div class="grid g2 mt">
+     <div class="card"><h3>Top movers</h3><div id="heatTop"></div></div>
+     <div class="card"><h3>Laggards</h3><div id="heatBottom"></div></div>
+   </div>
+   <div class="card mt"><h3>Sector performance — heat by sector</h3><div id="heatSector"><canvas id="heatSectorChart" height="120"></canvas></div></div>
+   <div class="muted small mt" id="heatNote"></div>
+</section>
+
+<!-- ═══════════════ DERIVATIVES DEEP-DIVE ═══════════════ -->
+<section id="panel-derivatives" class="panel">
+   <h1>Derivatives Deep-Dive <i class="fi" data-f="option_greeks"></i></h1>
+   <div class="toolbar card">
+     <input id="dvSymbol" value="RELIANCE.NS" class="w140 mono" placeholder="UNDERLYING.NS"/>
+     <button id="btnDeriv" class="primary">📊 Analyze</button>
+     <span id="dvStatus" class="muted small"></span>
+     <span class="grow"></span>
+     <span class="muted small">term structure · alpha/beta vs NIFTY · option chain</span>
+   </div>
+   <div id="dvKpis" class="grid g4 mt tiles"></div>
+   <div class="grid g2 mt">
+     <div class="card"><h3>Futures term structure <i class="fi" data-f="carry_trade"></i></h3><div id="dvTermWrap"><canvas id="dvTermChart"></canvas><p class="muted small">off-season: term structure unavailable</p></div></div>
+     <div class="card"><h3>Alpha / Beta vs NIFTY50 <i class="fi" data-f="alpha_beta"></i></h3><div id="dvAlphaWrap"><canvas id="dvAlphaChart"></canvas></div></div>
+   </div>
+   <div class="grid g2 mt">
+     <div class="card"><h3>Rolling alpha (3m window)</h3><div id="dvRollWrap"><canvas id="dvRollChart"></canvas></div></div>
+     <div class="card"><h3>Options chain <i class="fi" data-f="implied_vol"></i></h3><div id="dvChain" class="muted small">off-season: option chain unavailable</div></div>
+   </div>
+</section>
+
+<!-- ═══════════════ MARKET REGIME ═══════════════ -->
+<section id="panel-regime" class="panel">
+   <h1>Market Regime — 5-signal mosaic <i class="fi" data-f="fii_dii_regime_score"></i></h1>
+   <div class="toolbar card">
+     <input id="rgSymbol" value="NIFTY" class="w120 mono" placeholder="INDEX SYMBOL"/>
+     <label class="inline small">vol
+       <input id="rgVolSym" value="NIFTY50" class="w90 mono"/>
+     </label>
+     <button id="btnRegime" class="primary">📡 Map Regime</button>
+     <span id="rgStatus" class="muted small"></span>
+     <span class="grow"></span>
+     <span class="muted small">regime radar · FII/DII flow · volatility regime</span>
+   </div>
+   <div class="grid g2-1 mt">
+     <div class="card"><h3>Regime component radar</h3><div id="rgRadar"><canvas id="rgRadarChart"></canvas></div></div>
+     <div class="card"><h3>Regime verdict</h3><div id="rgVerdict"></div></div>
+   </div>
+   <div class="grid g2 mt">
+     <div class="card"><h3>FII / DII net flow (last 8 sessions)</h3><div id="rgFlowWrap"><canvas id="rgFlowChart"></canvas></div></div>
+     <div class="card"><h3>Volatility regime <i class="fi" data-f="vol_regime"></i></h3><div id="rgVolWrap"><canvas id="rgVolChart"></canvas></div></div>
+   </div>
+   <div class="card mt"><h3>Decision checklist (18 discipline gates)</h3><div id="rgCheck" class="muted small">map a regime first.</div></div>
+</section>
+
+<!-- ═══════════════ OPPORTUNITY BOARD ═══════════════ -->
+<section id="panel-opportunity" class="panel">
+   <h1>Opportunity Board — multi-strategy, regime-gated</h1>
+   <div class="toolbar card">
+     <select id="oppStrat"></select>
+     <label class="inline small">watchlist
+       <input id="oppWatch" value="RELIANCE,NIFTY,INFY,TATAMOTORS,BANKNIFTY" class="w220 mono" placeholder="SYM1,SYM2"/>
+     </label>
+     <button id="btnOpp" class="primary">🚀 Scan</button>
+     <span id="oppStatus" class="muted small"></span>
+     <span class="grow"></span>
+     <span class="muted small">each row: signal + regime verdict + conviction</span>
+   </div>
+   <div id="oppKpis" class="grid g4 mt tiles"></div>
+   <div class="card mt"><h3>Opportunity matrix</h3><div class="tbl-wrap"><table class="tbl" id="oppTable"></table></div></div>
+   <div class="grid g2 mt">
+     <div class="card"><h3>Regime verdict distribution</h3><div id="oppDistWrap"><canvas id="oppDistChart"></canvas></div></div>
+     <div class="card"><h3>Conviction vs distance-to-entry</h3><div id="oppScatWrap"><canvas id="oppScatChart"></canvas></div></div>
+   </div>
+</section>
+
+
 <!-- ══════════════ FORMULA LIBRARY ══════════════ -->
 <section id="panel-library" class="panel">
   <h1>Formula Library — every calculation explained</h1>
   <div class="toolbar card">
-    <input id="libSearch" placeholder="search formulas…" class="w260"/>
+    <input id="libSearch" placeholder="search formulas…" class="w240"/>
     <span class="muted small">Click any formula to open its deep-dive: LaTeX math → derivation steps → nested dependencies → live worked example on real data.</span>
   </div>
   <div id="libContainer"></div>
@@ -410,5 +562,6 @@
 
 <div id="toast" class="toast hidden"></div>
 <script src="/js/app.js"></script>
+<script src="/js/panels.js"></script>
 </body>
 </html>

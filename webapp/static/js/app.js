@@ -18,6 +18,29 @@ function toast(msg, ms=3200){
   clearTimeout(t._h); t._h=setTimeout(()=>t.classList.add("hidden"),ms);
 }
 
+/* ── unified dark chart theme (Chart.js) ── */
+if(window.Chart){
+  const D=Chart.defaults;
+  D.color="#8a97ad";
+  D.borderColor="rgba(35,43,64,.6)";
+  D.font.family="'Inter',system-ui,-apple-system,sans-serif";
+  D.font.size=11;
+  D.plugins.tooltip.backgroundColor="rgba(16,21,34,.97)";
+  D.plugins.tooltip.titleColor="#e6edf6";
+  D.plugins.tooltip.bodyColor="#cbd5e6";
+  D.plugins.tooltip.borderColor="rgba(56,189,248,.35)";
+  D.plugins.tooltip.borderWidth=1;
+  D.plugins.tooltip.padding=10;
+  D.plugins.tooltip.cornerRadius=8;
+  D.plugins.tooltip.displayColors=true;
+  D.plugins.tooltip.titleFont={weight:"600",size:12};
+  D.plugins.legend.labels.color="#8a97ad";
+  D.plugins.legend.labels.boxWidth=12;
+  D.plugins.legend.labels.usePointStyle=true;
+  D.plugins.legend.labels.padding=14;
+  D.plugins.legend.position="top";
+  D.plugins.title.color="#8a97ad";
+}
 /* ─────────────────────────────────────────────
    ⓘ FORMULA EXPLAINABILITY SYSTEM
 ──────────────────────────────────────────────*/
@@ -41,7 +64,7 @@ async function openFormula(fid, symbol){
 function closeFormulaModal(){
   $("#formulaModal").classList.add("hidden");
 }
-$("#fmClose")?.onclick = closeFormulaModal;
+if($("#fmClose")) $("#fmClose").onclick = closeFormulaModal;
 $("#formulaModal")?.addEventListener("click", e=>{ if(e.target.id==="formulaModal") closeFormulaModal(); });
 document.addEventListener("keydown", e=>{ if(e.key==="Escape") closeFormulaModal(); });
 
@@ -97,7 +120,8 @@ function renderMathInEl(el){
    NAV / GLOBALS
 ──────────────────────────────────────────────*/
 let chartRegistry={};
-function regChart(key,inst){ if(chartRegistry[key])chartRegistry[key].destroy(); chartRegistry[key]=inst; return inst;}
+function polishChart(ch){ try{["x","y"].forEach(function(ax){var sc=ch.options&&ch.options.scales&&ch.options.scales[ax]; if(sc){sc.grid=sc.grid||{}; sc.grid.color=sc.grid.color||"rgba(35,43,64,.55)"; sc.ticks=sc.ticks||{}; sc.ticks.color=sc.ticks.color||"#8a97ad";}});}catch(_){} }
+function regChart(key,make){ if(chartRegistry[key])chartRegistry[key].destroy(); var c=make(); try{polishChart(c);}catch(_){} chartRegistry[key]=c; return c; }
 function currentSymbol(){return $("#chSymbol").value.trim().toUpperCase()||"RELIANCE"}
 
 $$("#sideNav a").forEach(a=>a.onclick=()=>{
@@ -107,6 +131,12 @@ $$("#sideNav a").forEach(a=>a.onclick=()=>{
   if(a.dataset.panel==="charts"&&!window._chLoaded){loadChart();window._chLoaded=true;}
   if(a.dataset.panel==="options"&&!window._optLoaded){initOptions();window._optLoaded=true;}
   if(a.dataset.panel==="library")buildLibrary();
+  if(a.dataset.panel==="insight"&&!window._insLoaded){runInsight();window._insLoaded=true;}
+  if(a.dataset.panel==="decision"&&!window._decLoaded){window.decidePanel&&window.decidePanel();window._decLoaded=true;}
+  if(a.dataset.panel==="heatmap"&&!window._hmLoaded){window.heatmapPanel&&window.heatmapPanel();window._hmLoaded=true;}
+  if(a.dataset.panel==="derivatives"&&!window._dvLoaded){window.derivativesPanel&&window.derivativesPanel();window._dvLoaded=true;}
+  if(a.dataset.panel==="regime"&&!window._rgLoaded){window.regimePanel&&window.regimePanel();window._rgLoaded=true;}
+  if(a.dataset.panel==="opportunity"&&!window._oppLoaded){window.opportunityPanel&&window.opportunityPanel();window._oppLoaded=true;}
 });
 $("#btnGoSymbol").onclick=()=>{$("#chSymbol").value=$("#globalSymbol").value.trim().toUpperCase();
   $$("#sideNav a").find(a=>a.dataset.panel==="charts").click();};
@@ -143,7 +173,7 @@ async function loadDashboard(){
     f.table.forEach(r=>{(cats[r.category]=cats[r.category]||new Set()).add(String(r.date));
       nets[r.category]=nets[r.category]||{}; nets[r.category][String(r.date)]=r.net_cr;});
     const dates=[...new Set(f.table.map(r=>String(r.date)))].sort();
-    regChart("flow",new Chart($("#flowChart"),{type:"bar",data:{labels:dates,
+    regChart("flow",()=>new Chart($("#flowChart"),{type:"bar",data:{labels:dates,
       datasets:Object.keys(nets).map((c,i)=>({label:c,data:dates.map(d=>nets[c][d]??0),
         backgroundColor:i===0?"rgba(56,189,248,.75)":"rgba(167,139,250,.75)"}))},
       options:{plugins:{legend:{labels:{color:"#7c8aa5"}}},scales:{x:{ticks:{color:"#7c8aa5"}},
@@ -206,6 +236,24 @@ $("#btnScreener").onclick=async()=>{
   }catch(e){$("#scrStatus").textContent="failed: "+e.message;}
 };
 
+
+async function renderInsight(s, sym){
+  const insigt=s.insight;
+  if(!insigt) return `<div class="rationale muted">insight unavailable — regime data could not be computed</div>`;
+  const sv=insigt.state_vector||{};
+  const vcls=insigt.verdict.startsWith("FAVORABLE")?"pos":(insigt.verdict.startsWith("ADVERSE")?"neg":"neu");
+  const items=(arr)=>(arr||[]).map(x=>`<li>${esc(x)}</li>`).join("");
+  const win=insigt.horizon_framework?insigt.horizon_framework.window:"";
+  return `
+     <div class="insight ${vcls}">
+       <div class="insight-head"><b class="mono">${esc(insigt.regime_label)}</b><span class="insight-conf">${Math.round(insigt.confidence*100)}% regime confidence</span></div>
+       <div class="insight-verdict ${vcls}">${esc(insigt.verdict)}</div>
+       <div class="insight-cols"><div><div class="insight-k">Favours</div>${esc(insigt.favors)}</div><div><div class="insight-k neg">Trap</div>${esc(insigt.trap)}</div></div>
+       <div class="insight-state mono">NIFTY ${sv.nifty_close!=null?num(sv.nifty_close):"—"} · ${sv.vs_ema200_pct!=null?"vs EMA200 "+sv.vs_ema200_pct+"%":"—"} · ADX ${sv.adx!=null?sv.adx:"—"} · VIX ${sv.vix_pctile!=null?sv.vix_pctile+"p":"—"} · FII ${sv.fii_label||"—"}</div>
+       <div class="insight-cols"><div><div class="insight-k pos">Confirmations</div><ul>${items(insigt.confirmations)}</ul></div><div><div class="insight-k neg">Invalidation</div><ul>${items(insigt.invalidation)}</ul></div></div>
+       <details class="insight-hz"><summary>Horizon framework · ${esc(win)}</summary><div class="insight-hz-body"><div><div class="insight-k">Signal priority</div><ol class="hz-list">${(insigt.horizon_framework?.hierarchy||[]).map((x,ix)=>`<li><b>${ix+1}</b> ${esc(x)}</li>`).join("")}</ol></div><div><div class="insight-k neg">Common mistakes</div><ul>${(insigt.horizon_framework?.mistakes||[]).map(m=>`<li>${esc(m)}</li>`).join("")}</ul></div></div></details>
+     </div>`;
+}
 async function showSignal(sym){
   const strat=$("#sigStrategy").value;
   $("#signalCard").classList.remove("hidden");
@@ -214,8 +262,10 @@ async function showSignal(sym){
   try{
     const s=await api("/signals",{method:"POST",body:JSON.stringify({symbol:sym,strategy:strat})});
     if(s.direction===0){
-      $("#signalBody").innerHTML=`<p class="neu">NO TRADE — strategy conditions not met. Rationale:
-        <span class="mono small">${esc(JSON.stringify(s.rationale))}</span></p>`; return;}
+      $("#signalBody").innerHTML=`<p class="neu">NO TRADE — strategy conditions not met. Rationale: <span class="mono small">${esc(JSON.stringify(s.rationale||{}))}</span></p>`
+       +`<hr class="sep-h"><div class="muted small mb8">Regime still applies — what the market is doing:</div>`
+        +await renderInsight(s, sym);
+      return;}
     const cells=[["Direction",s.direction===1?'BUY':'SELL',s.direction===1?"pos":"neg"],
       ["Entry",num(s.entry)],["Stop",num(s.stop),"neg"],["Target 1 (+1R)",num(s.target1)],
       ["Target 2",num(s.target2),"pos"],["R:R",s.rr?`1 : ${s.rr}`:"—"],
@@ -226,8 +276,7 @@ async function showSignal(sym){
         ${s.sizing?`<div class="sig-cell"><div class="k">Qty @1% risk <i class="fi" data-f="atr_position_size"></i></div>
           <div class="v">${s.sizing.qty}</div></div>`:""}
       </div>
-      <div class="rationale"><b>why:</b> ${esc(JSON.stringify(s.rationale))}
-       · <b>regime:</b> FII bias ${s.regime.label} (${s.regime.score}) <i class="fi" data-f="fii_dii_regime_score"></i></div>
+      ${await renderInsight(s, sym)}
       ${s.sizing&&s.sizing.qty>0?`<div class="row-actions"><button id="btnPaperFromSig" class="primary">
         ➕ Paper-buy ${s.sizing.qty} @ ~₹${num(s.entry)}</button></div>`:""}`;
     const b=$("#btnPaperFromSig");
@@ -340,12 +389,12 @@ async function loadChain(u=$("#optUnderlying").value,e=$("#optExpiry").value){
     bindInfoIcons();
     const strikes=d.chain.map(c=>c.strike),mid=strikes.length>60?strikes.slice(30,-30):strikes;
     const sub=d.chain.filter(c=>mid.includes(c.strike));
-    regChart("oi",new Chart($("#oiChart"),{type:"bar",data:{
+    regChart("oi",()=>new Chart($("#oiChart"),{type:"bar",data:{
       labels:sub.map(c=>c.strike),
       datasets:[{label:"CE OI",data:sub.map(c=>c.ce_oi),backgroundColor:"rgba(239,68,68,.65)"},
                 {label:"PE OI",data:sub.map(c=>c.pe_oi),backgroundColor:"rgba(34,197,94,.65)"}]},
       options:{scales:{x:{ticks:{color:"#7c8aa5",maxRotation:90}},y:{ticks:{color:"#7c8aa5"}}}}}));
-    regChart("iv",new Chart($("#ivSmile"),{type:"line",data:{
+    regChart("iv",()=>new Chart($("#ivSmile"),{type:"line",data:{
       labels:sub.map(c=>c.strike),
       datasets:[{label:"CE IV%",data:sub.map(c=>c.ce_iv),borderColor:"#ef4444",tension:.35},
                 {label:"PE IV%",data:sub.map(c=>c.pe_iv),borderColor:"#22c55e",tension:.35}]},
@@ -368,7 +417,7 @@ $("#btnBuild").onclick=async()=>{
     const st=await api("/options/preset",{method:"POST",body:JSON.stringify({
       preset:$("#presetSel").value,spot,sigma:(parseFloat($("#pbSigma").value)||15)/100,
       days:parseInt($("#pbDays").value)||21})});
-    regChart("payoff",new Chart($("#payoffChart"),{type:"line",data:{
+    regChart("payoff",()=>new Chart($("#payoffChart"),{type:"line",data:{
       labels:st.payoff.spots,
       datasets:[{label:"PnL at expiry ₹",data:st.payoff.pnl,borderColor:"#38bdf8",
         pointRadius:0,tension:0,
@@ -411,20 +460,20 @@ $("#btnBacktest").onclick=async()=>{
       <div class="t-value mono ${k.includes("drawdown")?(m[k]<0?"neg":""):cls(m[k])}">${num(m[k],k==="final_equity"?0:2)}</div></div>`).join("");
     bindInfoIcons();
     const toXY=a=>a.map(p=>({x:new Date(p[0]*1000).toLocaleDateString("en-IN"),y:p[1]}));
-    regChart("eq",new Chart($("#eqChart"),{type:"line",data:{labels:d.equity.map(p=>new Date(p[0]*1000).toLocaleDateString("en-IN")),
+    regChart("eq",()=>new Chart($("#eqChart"),{type:"line",data:{labels:d.equity.map(p=>new Date(p[0]*1000).toLocaleDateString("en-IN")),
       datasets:[{label:"Strategy ₹",data:d.equity.map(p=>p[1]),borderColor:"#38bdf8",pointRadius:0,borderWidth:2},
                 {label:"Buy&Hold ₹",data:d.buy_hold.map(p=>p[1]),borderColor:"rgba(124,138,165,.7)",
                  pointRadius:0,borderWidth:1.5,borderDash:[5,4]}]},
       options:{plugins:{legend:{labels:{color:"#7c8aa5"}}},scales:{x:{ticks:{color:"#7c8aa5",maxTicksLimit:10}},
         y:{ticks:{color:"#7c8aa5"}}}}}));
-    regChart("dd",new Chart($("#ddChart"),{type:"line",data:{labels:d.drawdown.map(p=>new Date(p[0]*1000).toLocaleDateString("en-IN")),
+    regChart("dd",()=>new Chart($("#ddChart"),{type:"line",data:{labels:d.drawdown.map(p=>new Date(p[0]*1000).toLocaleDateString("en-IN")),
       datasets:[{label:"Drawdown %",data:d.drawdown.map(p=>p[1]),borderColor:"#ef4444",
         backgroundColor:"rgba(239,68,68,.15)",fill:true,pointRadius:0}]},
       options:{plugins:{legend:{display:false}},scales:{x:{ticks:{color:"#7c8aa5",maxTicksLimit:10}},
         y:{ticks:{color:"#7c8aa5"}}}}}));
     const rs=d.trades.map(t=>t.r_mult).filter(r=>r!=null&&!Number.isNaN(r));
     const buckets={};rs.forEach(r=>{const b=Math.round(r);buckets[b]=(buckets[b]||0)+1;});
-    regChart("rh",new Chart($("#rHist"),{type:"bar",data:{labels:Object.keys(buckets).sort((a,b)=>a-b),
+    regChart("rh",()=>new Chart($("#rHist"),{type:"bar",data:{labels:Object.keys(buckets).sort((a,b)=>a-b),
       datasets:[{data:Object.keys(buckets).sort((a,b)=>a-b).map(k=>buckets[k]),
         backgroundColor:Object.keys(buckets).sort((a,b)=>a-b).map(k=>k>=0?"rgba(34,197,94,.7)":"rgba(239,68,68,.7)")}]},
       options:{plugins:{title:{display:true,text:"R-multiples per closed trade",color:"#7c8aa5"}},
@@ -517,12 +566,12 @@ $("#btnOptimize").onclick=async()=>{
     const syms=$("#poSymbols").value.split(",").map(s=>s.trim());
     const d=await api(`/portfolio/optimize?symbols=${encodeURIComponent(syms.join(","))}`);
     const ms=d.summary.max_sharpe.weights;
-    regChart("alloc",new Chart($("#allocChart"),{type:"doughnut",data:{
+    regChart("alloc",()=>new Chart($("#allocChart"),{type:"doughnut",data:{
       labels:Object.keys(ms),datasets:[{data:Object.values(ms).map(w=>w*100),
         backgroundColor:["#38bdf8","#22c55e","#f59e0b","#ef4444","#a78bfa","#06b6d4","#84cc16","#fb7185"]}]},
       options:{plugins:{legend:{position:"right",labels:{color:"#7c8aa5",boxWidth:10}},
         title:{display:true,text:"Max-Sharpe weights %",color:"#7c8aa5"}}}}));
-    regChart("fr",new Chart($("#frontierChart"),{type:"scatter",data:{datasets:[
+    regChart("fr",()=>new Chart($("#frontierChart"),{type:"scatter",data:{datasets:[
       {label:"Efficient frontier",data:d.frontier.map(p=>({x:p.vol,y:p.ret})),
        borderColor:"#38bdf8",showLine:true,pointRadius:2},
       {label:"Max Sharpe",data:[{x:d.summary.max_sharpe.vol_pct,y:d.summary.max_sharpe.exp_ret_pct}],
@@ -624,7 +673,7 @@ function renderCase(d){
     const cv=$("#csChart");
     const g=cv.getContext("2d").createLinearGradient(0,0,0,cv.height||240);
     g.addColorStop(0,"rgba(56,189,248,.30)"); g.addColorStop(1,"rgba(56,189,248,0)");
-    regChart("cs",new Chart(cv,{type:"line",data:{labels,
+    regChart("cs",()=>new Chart(cv,{type:"line",data:{labels,
       datasets:[{label:"Close ₹",data:vals,borderColor:"#38bdf8",borderWidth:1.8,
         tension:.2,fill:true,backgroundColor:g,pointRadius:0,pointHitRadius:8},
         {label:"Pattern events",data:vals.map((v,i)=>patNames[labels[i]]?v:null),
@@ -684,7 +733,7 @@ function renderCase(d){
       <td><span class="${p.pattern.includes("TOP")?"neg":"pos"}">${esc(p.pattern)}</span></td>
       <td>${esc(p.detail)}</td></tr>`).join("");
   if(d.competitors?.length){
-    regChart("cscomp",new Chart($("#csCompChart"),{type:"bar",data:{
+    regChart("cscomp",()=>new Chart($("#csCompChart"),{type:"bar",data:{
       labels:d.competitors.map(c=>c.symbol),
       datasets:[{label:"RS vs Nifty 3m %",data:d.competitors.map(c=>c.rs_vs_nifty_3m),
         backgroundColor:d.competitors.map(c=>c.rs_vs_nifty_3m>=0?"rgba(34,197,94,.7)":"rgba(239,68,68,.7)")}]},
@@ -770,7 +819,7 @@ async function loadStudy(inst){
       ["Session notes",esc(s.session_notes)],
       ...s.expiries.slice(0,4).map((e,i)=>[`Expiry ${i+1}`,`${e.date} <span class="muted tiny">(${e.kind})</span>`])]
       .map(r=>`<div class="ind-row"><span class="muted">${r[0]}</span><b class="mono small">${r[1]}</b></div>`).join("");
-    regChart("cone",new Chart($("#coneChart"),{type:"bar",data:{
+    regChart("cone",()=>new Chart($("#coneChart"),{type:"bar",data:{
       labels:s.cone.map(c=>c.window_days+"d"),
       datasets:[{label:"p25",data:s.cone.map(c=>c.p25),backgroundColor:"rgba(34,197,94,.35)"},
         {label:"median",data:s.cone.map(c=>c.median),backgroundColor:"rgba(56,189,248,.55)"},
@@ -787,20 +836,140 @@ $("#btnBuzz").onclick=async()=>{
   try{
     const b=await api(`/radar/buzz/${sym}`);
     $("#buzzCard").classList.remove("hidden");
-    const news=b.feeds.news.items||[], posts=b.feeds.reddit.posts||[];
-    $("#buzzBody").innerHTML=
-      `<div class="ind-row"><span class="muted">buzz score (mentions×news heuristic)</span>
-       <b class="mono">${b.buzz_score}/100</b></div>
-       <div class="muted small mb8">${esc(b.note||"")}</div>`
-      + news.slice(0,6).map(n=>`<div class="news-item"><div class="nh">${esc(n.title)}</div>
-          <div class="nm"><span>${esc(n.source)}</span><span class="badge info">NEWS</span></div></div>`).join("")
-      + (b.feeds.reddit.status==="ok"
-         ? posts.slice(0,6).map(p=>`<div class="news-item"><div class="nh">${esc(p.title)}</div>
-             <div class="nm"><span>r/${esc(p.subreddit)}</span><span>▲${p.score} 💬${p.comments}</span>
-             <span class="badge info">REDDIT</span></div></div>`).join("")
-         : `<div class="news-item"><div class="nm">reddit: ${esc(b.feeds.reddit.status)}</div></div>`);
-  }catch(e){toast("✗ "+e.message);}
+    const sm=b.sentiment||{}, tilt=(sm.tilt_pct!=null?sm.tilt_pct:0);
+    const items=b.top_items||[];
+    const tiltTxt = tilt>5?"bullish tilt":(tilt<-5?"bearish tilt":"neutral");
+    const tiltCls = tilt>0?"pos":(tilt<0?"neg":"neu");
+    const srcBadge=(b.feed_reachability||[]).map(r=>{
+      const c=r.ok?"badge ok":((r.status.includes("blocked")||r.status.includes("403"))?"badge warn":"badge info");
+      return `<span class="${c}" title="${esc(r.status)}">${esc(String(r.name).split(' ')[0])} ${r.ok?("·"+r.items):"✕"}</span>`;
+    }).join("");
+    const itemHtml=n=>{
+      const isR = n.kind && String(n.kind).startsWith("reddit");
+      const title=esc(n.title||"");
+      const sgn = isR ? "" :
+          (/crash|plunge|fall|loss|down|tumble|decline|slump/i.test(n.title||"")?'<span class="neg">−</span>':
+           /rall|surge|up|high|gain|rebound|record/i.test(n.title||"")?'<span class="pos">+</span>':'<span class="neu">·</span>');
+      const link = n.link?`<a href="${esc(n.link)}" target="_blank" rel="noopener" class="open">↗</a>`:"";
+      const sub = isR
+          ? `<span>▲${n.score} 💬${n.comments||0}</span><span class="badge info">REDDIT</span>`
+          : `<span class="badge info">${esc(String(n.source||"").split(' ')[0].toUpperCase())}</span>`;
+      const auth = (n.authority!=null)?`<span class="muted">auth ${Math.round(n.authority*100)}%</span>`:"";
+      const rel = n.relevant?`<span class="badge ok">references ${esc(b.symbol)}</span>`:"";
+      return `<div class="news-item ${n.relevant?"rel":""}">`+
+             `<div class="nh">${sgn} ${title} ${link}</div>`+
+             `<div class="nm"><span>${esc(n.source||n.kind)}</span> ${sub} ${auth} ${rel}</div></div>`;
+    };
+    let body =
+        `<div class="buzz-head">`+
+        `<div><div class="k">Buzz score</div><div class="v mono">${b.buzz_score}/100</div></div>`+
+        `<div><div class="k">Sources live</div><div class="v mono">${b.sources_reachable}/${b.sources_total}</div></div>`+
+        `<div><div class="k">Mentions (relevant)</div><div class="v mono">${b.relevant_mentions}<span class="muted">/${b.mentions}</span></div></div>`+
+        `<div><div class="k">Sentiment</div><div class="v mono ${tiltCls}">${tilt>0?"+":""}${tilt}% · ${tiltTxt}</div></div>`+
+        `</div>`+
+        `<div class="buzz-sources">${srcBadge}</div>`+
+        `<div class="muted small mb8">${esc(b.note||"")}</div>`+
+        (items.length
+          ? `<div class="buzz-list">${items.map(itemHtml).join("")}</div>`
+          : `<div class="muted small">No items — all sources unreachable in this network.</div>`);
+    $("#buzzBody").innerHTML = body;
+   }catch(e){toast("✗ "+e.message);}
 };
+/* ─────────────────────────────────────────
+   REGIME INSIGHTS panel — regime-driven actionable dashboard
+   ────────────────────────────────────────*/
+async function runInsight(){
+  const hor=$("#insHorizon").value, side=Number($("#insSide").value);
+  const body=$("#insBody"), st=$("#insStatus");
+  st.textContent="analyzing regime…"; body.innerHTML='<p class="muted">computing…</p>';
+  try{
+    const d=await api(`/insights?horizon=${encodeURIComponent(hor)}&side=${side}&symbol=NIFTY`);
+    st.textContent=""; body.innerHTML=insightPanel(d);
+    bindInsightChecklist(body);
+   }catch(e){ st.textContent=""; body.innerHTML=`<p class="neg">insight unavailable: ${esc(e.message)}</p>`; }
+}
+$("#btnInsight")?.addEventListener("click",()=>{window._insLoaded=false;runInsight();});
+$("#insHorizon")?.addEventListener("change",()=>{window._insLoaded=false;runInsight();});
+$("#insSide")?.addEventListener("change",()=>{window._insLoaded=false;runInsight();});
+
+function vcls(v){const s=((v||"")+"").toUpperCase();return s.startsWith("FAVORABLE")?"pos":s.startsWith("ADVERSE")?"neg":"neu";}
+function insightPanel(d){
+  const sv=d.state_vector||{}, vc=vcls(d.verdict);
+  const conf=Math.round((d.confidence||0)*100);
+  // confidence gauge (0..100 -> half dial)
+  const ang=Math.PI-conf/100*Math.PI, cx=100,cy=100,r=78;
+  const nx=cx+r*Math.cos(ang),ny=cy-r*Math.sin(ang);
+  const gaugeCol=conf>=66?"var(--green)":conf>=34?"var(--amber)":"var(--red)";
+  const gtile=(k,v,s)=>`<div class="tile"><div class="t-label">${esc(k)}</div>
+      <div class="t-value">${v}</div>${s?`<div class="t-sub">${esc(s)}</div>`:""}</div>`;
+  const trendCol=sv.trend==="up"?"pos":sv.trend==="down"?"neg":"neu";
+  const tiles=[
+     gtile("NIFTY", sv.nifty_close!=null?num(sv.nifty_close):"—", sv.trend_detail||sv.trend||"—"),
+     gtile("vs EMA200", sv.vs_ema200_pct!=null?(sv.vs_ema200_pct>0?"+":"")+sv.vs_ema200_pct+"%":"—", `trend ${sv.trend||"?"}`),
+     gtile("ADX", sv.adx!=null?num(sv.adx,1):"—", sv.adx>=25?"trending":sv.adx<=20?"no trend":"—"),
+     gtile("India VIX", sv.vix_pctile!=null?sv.vix_pctile+"p":"—", sv.vix_pctile>=75?"high vol":sv.vix_pctile<=30?"compressed":"—"),
+     gtile("FII 5d", sv.fii_label||"—", sv.fii_score!=null?(sv.fii_score>0?"+":"")+sv.fii_score.toFixed(2):"—"),
+  ];
+  const ul=(arr,pos,neg)=>`<ul>${(arr||[]).map(x=>`<li>${esc(x)}</li>`).join("")||"<li class='muted'>—</li>"}</ul>`;
+  const check=d.checklist||[];
+  return `
+    <div class="insight ${vc}">
+      <div class="insp-head">
+        <div>
+          <div class="insp-regime mono">${esc(d.regime_label)} <span class="muted small">(${esc(d.regime)})</span></div>
+          <div class="insp-horizon">Horizon: <b>${esc(d.horizon)}</b> · Side: <b>${esc(d.side_label||d.side)}</b></div>
+        </div>
+        <div class="center-card">
+          <svg viewBox="0 0 200 110" class="gauge insp-gauge">
+            <path d="M ${cx-r} ${cy} A ${r} ${r} 0 0 1 ${cx+r} ${cy}" fill="none" stroke="#232b40" stroke-width="14"/>
+            <line x1="${cx}" y1="${cy}" x2="${nx}" y2="${ny}" stroke="${gaugeCol}" stroke-width="4"/>
+            <circle cx="${cx}" cy="${cy}" r="6" fill="${gaugeCol}"/>
+          </svg>
+          <div class="big-label" style="color:${gaugeCol}">${conf}%</div>
+          <div class="sub-label">regime confidence</div>
+        </div>
+      </div>
+      <div class="insight-verdict ${vc}">${esc(d.verdict)}</div>
+    </div>
+    <div class="grid g5 mt insp-tiles">${tiles.join("")}</div>
+    <div class="grid g2 mt">
+      <div class="card"><h3>State Vector — the regime R(t)</h3>
+        <div class="insight-state mono">
+          NIFTY ${sv.nifty_close!=null?num(sv.nifty_close):"—"} · vs EMA200 ${sv.vs_ema200_pct!=null?sv.vs_ema200_pct+"%":"—"} ·
+          ADX ${sv.adx!=null?num(sv.adx,1):"—"} · VIX ${sv.vix_pctile!=null?sv.vix_pctile+"p":"—"} ·
+          FII ${sv.fii_label||"—"} · trend <b class="${trendCol}">${sv.trend||"—"}</b>
+        </div>
+        <div class="insight-cols mt8">
+          <div><div class="insight-k pos">Favours</div><div>${esc(d.favors)}</div></div>
+          <div><div class="insight-k neg">Trap</div><div>${esc(d.trap)}</div></div>
+        </div>
+      </div>
+      <div class="card"><h3>Horizon Framework · ${esc(d.horizon_framework?.window||d.horizon)} <i class="fi" data-f="screener_composite"></i></h3>
+        <div class="insight-cols">
+          <div><div class="insight-k pos">Signal priority</div>
+            <ol class="hz-list">${(d.horizon_framework?.hierarchy||[]).map((x,i)=>`<li><b>${i+1}</b> ${esc(x)}</li>`).join("")}</ol></div>
+          <div><div class="insight-k neg">Common mistakes</div>
+            <ul>${(d.horizon_framework?.mistakes||[]).map(m=>`<li>${esc(m)}</li>`).join("")||"<li class='muted'>—</li>"}</ul></div>
+        </div>
+      </div>
+    </div>
+    <div class="grid g2 mt">
+      <div class="card"><h3>Confirmations required ${ul?`<small class="muted" style="font-weight:400">· ${esc(d.side_label||d.side)}</small>`:""}</h3>
+        <div class="insight-cols"><div style="grid-column:1/3">${ul(d.confirmations,true)}</div></div></div>
+      <div class="card"><h3>Invalidation & kill-switches</h3>
+        <div class="insight-cols"><div style="grid-column:1/3">${ul(d.invalidation,false)}</div></div></div>
+    </div>
+    <div class="card mt"><h3>Decision Checklist — 18 discipline gates <i class="fi" data-f="screener_composite"></i></h3>
+      <div class="insp-check">${check.map(q=>`<label class="insp-gate"><input type="checkbox"/> ${esc(q)}</label>`).join("")}</div>
+    </div>
+    <div class="muted small">${(d.data_notes||[]).map(esc).join(" · ")}</div>`;
+}
+function bindInsightChecklist(root){
+  $$(".insp-gate input",root).forEach(cb=>cb.addEventListener("change",()=>{
+     cb.closest(".insp-gate").classList.toggle("done",cb.checked);
+  }));
+}
+
 async function buildLibrary(){
   const c=$("#libContainer");
   if(c.dataset.built){filterLibrary();return;}

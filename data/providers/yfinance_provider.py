@@ -32,20 +32,45 @@ class YFinanceProvider(DataProvider):
 
     def quote(self, symbol: str) -> dict:
         tk = yf.Ticker(to_yf_symbol(symbol))
-        fi = tk.fast_info
-        prev = float(fi.get("previousClose") or 0)
-        last = float(fi.get("lastPrice") or 0)
+        try:
+            fi = tk.fast_info
+            prev = float(fi.get("previousClose") or 0)
+            last = float(fi.get("lastPrice") or 0)
+            data = {
+                 "symbol": symbol.upper(),
+                 "ltp": last,
+                 "prev_close": prev,
+                 "change_pct": ((last - prev) / prev * 100) if prev else 0.0,
+                 "day_high": float(fi.get("dayHigh") or 0),
+                 "day_low": float(fi.get("dayLow") or 0),
+                 "volume": int(fi.get("lastVolume") or 0),
+                 "market_cap_cr": (float(fi.get("marketCap") or 0)) / 1e7,
+                 "currency": fi.get("currency", "INR"),
+              }
+            if data["ltp"] or data["prev_close"]:
+                return data
+        except Exception:
+            pass
+         # Fallback: some yfinance versions make fast_info.lastPrice trigger a
+         # 1y history fetch that raises; derive the snapshot from recent bars.
+        hist = self.history(symbol, "5d")
+        if hist.empty:
+            return {"symbol": symbol.upper(), "ltp": 0.0, "prev_close": 0.0,
+                     "change_pct": 0.0, "day_high": 0.0, "day_low": 0.0,
+                     "volume": 0, "market_cap_cr": 0.0, "currency": "INR"}
+        last = float(hist["close"].iloc[-1])
+        prev = float(hist["close"].iloc[-2]) if len(hist) > 1 else last
         return {
-            "symbol": symbol.upper(),
-            "ltp": last,
-            "prev_close": prev,
-            "change_pct": ((last - prev) / prev * 100) if prev else 0.0,
-            "day_high": float(fi.get("dayHigh") or 0),
-            "day_low": float(fi.get("dayLow") or 0),
-            "volume": int(fi.get("lastVolume") or 0),
-            "market_cap_cr": (float(fi.get("marketCap") or 0)) / 1e7,
-            "currency": fi.get("currency", "INR"),
-        }
+             "symbol": symbol.upper(),
+             "ltp": last,
+             "prev_close": prev,
+             "change_pct": ((last - prev) / prev * 100) if prev else 0.0,
+             "day_high": float(hist["high"].iloc[-1]),
+             "day_low": float(hist["low"].iloc[-1]),
+             "volume": int(hist["volume"].iloc[-1]) if "volume" in hist else 0,
+             "market_cap_cr": 0.0,
+             "currency": "INR",
+          }
 
     def fundamentals(self, symbol: str) -> dict:
         """Lightweight fundamentals snapshot (OSINT)."""

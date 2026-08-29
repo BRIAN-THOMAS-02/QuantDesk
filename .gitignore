@@ -1,0 +1,28 @@
+# OS / editor
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# venv
+.venv/
+
+# logs / runtime artifacts
+logs/
+*.log
+
+# secrets
+.env
+
+# images / screenshots
+*.png
+
+# playwright mcp scratch
+.playwright-mcp/
+
+# reference knowledge base + scratch notes
+Knowledge/
+analysis.md

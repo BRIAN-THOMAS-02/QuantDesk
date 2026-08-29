@@ -89,10 +89,12 @@ class VolatilityRadar:
             "cone": cone.to_dict("records"),
             "expiries": [e.__dict__ for e in next_expiries(instrument.upper(), n=4)],
             "session_notes": {
-                "index": "09:15 open auction volatility; expiry-day gamma pinning near max-OI strikes; post-14:30 trend continuation stats strongest.",
-                "equity": "watch opening 15m range; SME-style smallcaps gap on news; avoid first-minute market orders.",
-                "commodity": "evening session (17:00-23:30) carries US data shocks; MCX gold tracks COMEX overnight.",
-                "currency": "RBI intervention zones blunt trends; best moves around Fed/RBI events.",
-            }[meta["kind"]],
-        }
+                 "index": "09:15 open auction volatility; expiry-day gamma pinning near max-OI strikes; post-14:30 trend continuation stats strongest.",
+                 "equity": "watch opening 15m range; SME-style smallcaps gap on news; avoid first-minute market orders.",
+                 "commodity": "evening session (17:00-23:30) carries US data shocks; MCX gold tracks COMEX overnight.",
+                 "currency": "RBI intervention zones blunt trends; best moves around Fed/RBI events.",
+                 "vol": "read the level itself: rich vol favors premium-selling (credit) & wide stops; cheap vol favors premium-buying & tight stops.",
+                 "fund": "fund/ETF vol tracks underlying index; treat like index with lower idiosyncratic noise.",
+             }.get(meta["kind"], "use regime + percentile_2y for sizing; wide stops when vol percentile is elevated."),
+            }
         return study

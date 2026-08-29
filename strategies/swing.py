@@ -22,7 +22,7 @@ class SupertrendRSI(StrategyBase):
     def generate(self, df: pd.DataFrame) -> Signal:
         st = ta.supertrend(df); df = df.assign(st_dir=st.direction)
         df["rsi"] = ta.rsi(df.close)
-        adx = ta.adx(df).adx
+        df["adx"] = ta.adx(df).adx
         last, prev = df.iloc[-1], df.iloc[-2]
         a = ta.atr(df).iloc[-1]
         flip_up = prev.st_dir == -1 and last.st_dir == 1

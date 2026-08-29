@@ -46,9 +46,9 @@ def capm_alpha_beta(returns: pd.Series, benchmark_returns: pd.Series,
     y = df["asset"] - rf / 252
     x = df["bench"] - rf / 252
     
-    # OLS: y = alpha + beta * x
+     # OLS: y = alpha + beta * x
     X = np.vstack([np.ones(len(x)), x]).T
-    beta_alpha, *_ = np.linalg.lstsq(X, y, rcond=None)[0]
+    beta_alpha = np.linalg.lstsq(X, y, rcond=None)[0]
     alpha_daily, beta = beta_alpha[0], beta_alpha[1]
     
     # Annualize

@@ -5,7 +5,7 @@ Run:  python main.py serve   (or: uvicorn webapp.server:app --reload --port 8000
 from __future__ import annotations
 
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import numpy as np
 import pandas as pd
@@ -26,18 +26,21 @@ from analysis.indicators import (compute_all, ema, bollinger, supertrend,
                                  macd as ta_macd, rsi as ta_rsi, adx as ta_adx,
                                  atr as ta_atr)
 from analysis.screener import Screener
+from analysis.insight import build_insight, regime_state, HORIZON_FRAMEWORKS
+from data.sector_map import sector_of, sector_groups
 from analysis.portfolio_opt import PortfolioOptimizer
 from strategies.swing import SWING_STRATEGIES
 from quant import (futures_fair_value, futures_basis, cash_futures_arbitrage,
-                   futures_greeks, term_structure_analysis, roll_yield,
-                   atm_iv, skew_metrics, term_structure_iv, iv_smile,
-                   put_call_parity, max_pain, pcr_analysis, oi_walls,
-                   oi_change_analysis, position_greeks, delta_neutral_hedge,
-                   gamma_scalping_pnl, calendar_spread_analysis,
-                   diagonal_spread_analysis, span_margin_estimate,
-                   scenario_analysis, implied_dividend_yield, implied_forward_rate,
-                   complete_fno_dashboard, instrument_fno_analytics,
-                   capm_alpha_beta, rolling_alpha_beta)
+                    futures_greeks, term_structure_analysis, roll_yield,
+                    atm_iv, skew_metrics, term_structure_iv, iv_smile, iv_surface,
+                    put_call_parity, max_pain, pcr_analysis, oi_walls,
+                    oi_change_analysis, position_greeks, delta_neutral_hedge,
+                    gamma_scalping_pnl, calendar_spread_analysis,
+                    diagonal_spread_analysis, span_margin_estimate,
+                    scenario_analysis, implied_dividend_yield, implied_forward_rate,
+                    complete_fno_dashboard, instrument_fno_analytics,
+                    capm_alpha_beta, rolling_alpha_beta,
+                    full_greeks, futures_margin_estimate)
 from strategies.intraday import INTRADAY_STRATEGIES
 from strategies.options_strategy import OptionsStrategyEngine, oi_intelligence
 from backtest.engine import run_backtest, BTConfig
@@ -59,6 +62,32 @@ from research.expiries import RADAR_INSTRUMENTS
 
 app = FastAPI(title="QuantDesk India", version="1.0")
 STATIC = Path(__file__).parent / "static"
+
+
+def json_safe(obj):
+    """Recursively convert NaN/inf -> None and numpy types -> native Python so
+    FastAPI's strict json encoder can serialize screener rows / analytics dicts."""
+    if isinstance(obj, float):
+        return None if obj != obj or obj in (float("inf"), float("-inf")) else obj
+    if isinstance(obj, (np.floating,)):
+        v = float(obj)
+        return None if v != v or v in (float("inf"), float("-inf")) else v
+    if isinstance(obj, (np.integer,)):
+        return int(obj)
+    if isinstance(obj, dict):
+        return {k: json_safe(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [json_safe(v) for v in obj]
+    return obj
+
+
+@app.exception_handler(Exception)
+def _json_exception_handler(_, exc):
+    # Uniform JSON error for unexpected 500s so the SPA client can parse it;
+    # FastAPI's own handler still wins for HTTPException.
+    from fastapi.responses import JSONResponse
+    logger.exception("unhandled API error")
+    return JSONResponse(status_code=500, content={"error": "internal server error"})
 
 yf_prov = YFinanceProvider()
 nse = NSEProvider()
@@ -113,10 +142,11 @@ def ctx_for(symbol: str, params: dict | None = None) -> dict:
 # =================================================================== #
 @app.get("/api/health")
 def health():
+    ist = datetime.now(timezone(timedelta(hours=5, minutes=30)))
     return {"ok": True, "mode": settings.TRADING_MODE,
             "kite_configured": bool(settings.KITE_API_KEY),
             "phase": market_phase(),
-            "time_ist": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")}
+             "time_ist": ist.strftime("%Y-%m-%d %H:%M:%S IST")}
 
 
 @app.get("/api/market/overview")
@@ -277,13 +307,80 @@ def screener(top_n: int = 12, universe: str | None = None, refresh: bool = False
         res = sc.run(top_n=top_n)
         return res.to_dict("records")
     rows = cached(f"screener:{top_n}:{universe}", 1800, run)
-    return {"rows": rows, "generated_at": datetime.now().isoformat(timespec="seconds"),
-            "factors_doc": "screener_composite"}
+    return json_safe({"rows": rows, "generated_at": datetime.now().isoformat(timespec="seconds"),
+              "factors_doc": "screener_composite"})
+
+
+
+# ---------------------------------------------------------------------------
+@app.get("/api/universe")
+def universe(top_n: int = 0):
+    """Full swing universe enriched with sector + change proxy, for the
+    heatmap / universe / movers pages.  One batched download; cached.  On a
+    weekend the daily change is a last-close proxy (honest, not intraday).
+    """
+    from analysis.screener import Screener
+
+    def run():
+        sc = Screener()
+        syms = sc.universe
+        data = yf.download([to_yf_symbol(s) for s in syms], period="6mo",
+                           group_by="ticker", threads=True, progress=False)
+        bench = sc.benchmark()
+        out = []
+        for s_ in syms:
+            try:
+                sub = data[to_yf_symbol(s_)] if len(syms) > 1 else data
+                if isinstance(sub.columns, pd.MultiIndex):
+                    sub.columns = sub.columns.get_level_values(-1)
+                if sub is None:
+                    continue
+                sub = sub.rename(columns=str.lower).dropna()
+                if sub.empty or len(sub) < 60:
+                    continue
+                close = sub["close"].astype(float)
+                ltp = float(close.iloc[-1])
+                prev = float(close.iloc[-2]) if len(close) > 1 else ltp
+                day_chg = (ltp / prev - 1) * 100 if prev else 0.0
+                n = min(len(close), 63)
+                chg_3m = (ltp / float(close.iloc[-n]) - 1) * 100 if n > 1 and close.iloc[-n] else 0.0
+                if len(bench) > n:
+                    bench_r = bench.pct_change(63).iloc[-1]
+                    s_r = close.pct_change(63).iloc[-1]
+                    rs = (s_r - bench_r) * 100
+                else:
+                    rs = 0.0
+                out.append({
+                    "symbol": s_,
+                    "sector": sector_of(s_),
+                    "ltp": round(ltp, 2),
+                    "change_pct": round(day_chg, 2),
+                    "ret_3m_pct": round(chg_3m, 2),
+                    "rs_vs_nifty_pct": round(rs, 2),
+                })
+            except Exception as e:
+                logger.debug("universe skip {}:", s_, e)
+        out.sort(key=lambda r: r["rs_vs_nifty_pct"], reverse=True)
+        return out
+
+    rows = cached("universe", 1800, run)
+    if top_n:
+        rows = rows[:top_n]
+    return json_safe({
+        "rows": rows,
+        "sectors": list(sector_groups().keys()),
+        "count": len(rows),
+        "generated_at": datetime.now().isoformat(timespec="seconds"),
+        "note": "Daily change is a last-close proxy off-session; re-verify intraday on a trading day.",
+    })
+
 
 
 class SignalRequest(BaseModel):
     symbol: str
     strategy: str = "supertrend_rsi"
+    horizon: str = "swing"
+    side: int = 1
 
 
 @app.post("/api/signals")
@@ -293,6 +390,16 @@ def signals(req: SignalRequest):
         raise HTTPException(400, f"unknown strategy {req.strategy}")
     strat = cls(); strat.symbol = req.symbol.upper()
     df = df_with_indicators(strat.symbol)
+    if df is None or df.empty:
+         return {
+            "symbol": req.symbol, "strategy": req.strategy, "direction": 0, "confidence": 0,
+            "entry": None, "stop": None, "target1": None, "target2": None, "rr": None,
+            "sizing": None,
+            "rationale": {"reason": "no_tradable_data",
+                          "msg": f"{strat.name}: no price data for {strat.symbol}."},
+            "regime": cached("regime", 1800, lambda: FiiDiiTracker().regime_bias()),
+            "insight": cached(f"insight:{req.symbol.upper()}:{req.horizon}:{req.side}", 900,
+                      lambda: build_insight(req.symbol.upper(), req.horizon, req.side))}
     sig = strat.generate(df).as_dict()
 
     # enrich with risk sizing when actionable
@@ -303,7 +410,18 @@ def signals(req: SignalRequest):
             t1, t2 = risk.targets_from_rr(sig["entry"], sig["stop"])
             sig["target1"], sig["target2"] = t1, t2
     sig["regime"] = cached("regime", 1800, lambda: FiiDiiTracker().regime_bias())
+    sig["insight"] = cached(f"insight:{req.symbol.upper()}:{req.horizon}:{req.side}", 900,
+                       lambda: build_insight(req.symbol.upper(), req.horizon, req.side))
     return sig
+
+
+@app.get("/api/insights")
+def insights(horizon: str = "swing", side: int = 1, symbol: str = "NIFTY"):
+    """Regime-conditioned actionable insight (market-wide) for a horizon."""
+    if horizon not in HORIZON_FRAMEWORKS:
+        raise HTTPException(400, f"unknown horizon {horizon}")
+    return cached(f"insight:{symbol.upper()}:{horizon}:{side}", 900,
+               lambda: build_insight(symbol, horizon, side))
 
 
 @app.get("/api/strategies")
@@ -388,9 +506,13 @@ def option_chain(underlying: str, expiry: str | None = None):
                 "chain": ch.round(2).to_dict("records"), "intel": intel}
     key = f"chain:{underlying}:{expiry}"
     try:
-        return cached(key, 300, fetch)
-    except ConnectionError as e:
-        raise HTTPException(503, f"NSE unavailable: {e}")
+        r = cached(key, 300, fetch)
+        return json_safe(r)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.warning("option_chain %s/%s failed: %s", underlying, expiry, repr(e))
+        raise HTTPException(503, f"NSE option chain unavailable: {e}")
 
 
 class PresetRequest(BaseModel):
@@ -413,14 +535,16 @@ PRESET_MAP = {"covered_call": "covered_call", "cash_secured_put": "cash_secured_
 def options_preset(req: PresetRequest):
     eng = OptionsStrategyEngine(spot=req.spot, r=settings.RISK_FREE_RATE)
     fn = getattr(eng, PRESET_MAP[req.preset])
-    kwargs = {"sigma_s": req.sigma, "days": req.days}
+    kwargs = {"days": req.days}
     if req.preset == "bull_call_spread":
-        kwargs["width"] = req.width
+        kwargs.update(sigma_s=req.sigma, width=req.width)
     elif req.preset == "iron_condor":
-        kwargs.update(wing=req.wing, body=req.body)
+        kwargs.update(sigma_base=req.sigma, wing=req.wing, body=req.body)
     elif req.preset in ("covered_call", "cash_secured_put"):
-        kwargs["otm_pct"] = req.otm_pct
-    return fn(**kwargs)
+        kwargs.update(sigma_s=req.sigma, otm_pct=req.otm_pct)
+    elif req.preset == "straddle":
+        kwargs["sigma_atm"] = req.sigma
+    return json_safe(fn(**kwargs))
 
 
 # =================================================================== #
@@ -442,10 +566,18 @@ def volatility(symbol: str):
                 {"name": "Rogers-Satchell", "val": round(float(rogers_satchell(df.high, df.low, df.open, df.close, 21).iloc[-1] * 100), 2)},
                 {"name": "Yang-Zhang", "val": round(float(yang_zhang(df.high, df.low, df.open, df.close, 21).iloc[-1] * 100), 2)},
             ],
-            "atr_percentile": atr_percentile(df.high, df.low, df.close),
-            "next_day_ewma_forecast_pct": forecast_ewma_next(df.close),
-        }
-    return cached(f"vol:{symbol}", 1800, fetch)
+              "atr_percentile": atr_percentile(df.high, df.low, df.close),
+              "next_day_ewma_forecast_pct": forecast_ewma_next(df.close),
+          }
+    key = f"vol:{symbol}"
+    try:
+        r = cached(key, 1800, fetch)
+        return json_safe(r)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.warning("volatility %s failed: %s", symbol, repr(e))
+        raise HTTPException(503, f"volatility data unavailable for {symbol}: {e}")
 
 
 class SimulateRequest(BaseModel):
@@ -721,75 +853,70 @@ def fno_analytics(symbol: str, expiry: str | None = None):
         spot = q.get("ltp") or q.get("prev_close", 0)
         if not spot:
             raise HTTPException(404, f"no price data for {sym}")
-        
-        # Get futures price and chain from NSE
+
+        # Futures price and DTE from NSE; fall back to spot / 30d if unreachable.
         try:
-            # Get futures price from NSE
-            nse_quote = nse.quote(sym)
-            futures_price = nse_quote.get("ltp") or spot
-            dte = 30  # approximate
-            
-            # Get option chain
-            chain = nse.option_chain(sym, expiry)
-            chain_iv = iv_surface(chain, spot) if not chain.empty else pd.DataFrame()
-            
-            # Get historical returns for alpha/beta
-            hist = yf_prov.history(sym, "1y")
-            returns = hist["close"].pct_change().dropna()
-            bench_hist = yf_prov.history("^NSEI", "1y")
-            bench_returns = bench_hist["close"].pct_change().dropna()
-            
-            # Complete analytics
-            result = complete_fno_dashboard(sym, spot, futures_price, 30, 
+            futures_price = nse.quote(sym).get("ltp") or spot
+        except Exception:
+            futures_price = spot
+        chain = nse.option_chain(sym, expiry)
+        dte = days_to_expiry(expiry) if expiry else 30
+
+        # Historical returns for alpha/beta — fetched once, reused below.
+        returns = yf_prov.history(sym, "1y")["close"].pct_change().dropna()
+        bench_returns = yf_prov.history("^NSEI", "1y")["close"].pct_change().dropna()
+
+        try:
+            result = complete_fno_dashboard(sym, spot, futures_price, dte,
                                             chain, returns, bench_returns)
-            
-            # Add more detailed analytics
-            if not chain.empty:
-                result["skew"] = skew_metrics(iv_surface(chain, spot), spot)
-                result["iv_term_structure"] = term_structure_iv(
-                    iv_surface(chain, spot), spot).to_dict("records")
-                result["pcr"] = pcr_analysis(chain)
-                result["max_pain"] = max_pain(chain)
-                result["oi_walls"] = oi_walls(chain)
-                result["parity"] = put_call_parity(chain, spot).to_dict("records")
-                result["skew_metrics"] = skew_metrics(iv_surface(chain, spot), spot)
-                
-                # Calendar spreads
-                if "expiry" in chain.columns:
-                    expiries = chain["expiry"].unique()
-                    if len(expiries) >= 2:
-                        exp = sorted(expiries)
-                        near_chain = chain[chain["expiry"] == exp[0]]
-                        far_chain = chain[chain["expiry"] == exp[1]]
-                        result["calendar_spreads"] = calendar_spread_analysis(
-                            near_chain, far_chain, spot)
-                        result["diagonals"] = diagonal_spread_analysis(chain, spot)
-            
-            # Futures analytics
-            result["futures"] = {
-                "spot": spot,
-                "futures_price": futures_price,
-                "dte": 30,
-                "fair_value": futures_fair_value(spot, settings.RISK_FREE_RATE, 0, 30),
-                "basis": futures_basis(spot, futures_price, 30),
-                "arb": cash_futures_arbitrage(spot, futures_price, 30),
-                "greeks": futures_greeks(spot, futures_price, 30).__dict__,
-                "margin": futures_margin_estimate(futures_price, 50),
-            }
-            
-            # Alpha/Beta
-            hist = yf_prov.history(sym, "1y")
-            returns = hist["close"].pct_change().dropna()
-            bench_hist = yf_prov.history("^NSEI", "1y")
-            bench_returns = bench_hist["close"].pct_change().dropna()
-            ab = capm_alpha_beta(returns, bench_returns)
-            result["alpha_beta"] = ab.__dict__
-            
-            return result
-            
         except Exception as e:
             logger.exception("F&O analytics failed")
-            raise HTTPException(502, f"F&O analytics failed: {e}")
+            raise HTTPException(502, f"F&O analytics failed: {e}") from e
+
+        if not chain.empty:
+            # Compute the IV surface once and reuse it across analytics.
+            chain_iv = iv_surface(chain, spot)
+            result["skew"] = skew_metrics(chain_iv, spot)
+            result["iv_term_structure"] = term_structure_iv(
+                chain_iv, spot).to_dict("records")
+            result["pcr"] = pcr_analysis(chain)
+            result["max_pain"] = max_pain(chain)
+            result["oi_walls"] = oi_walls(chain)
+            result["parity"] = put_call_parity(chain, spot).to_dict("records")
+            result["skew_metrics"] = result["skew"]
+
+            if "expiry" in chain.columns and len(set(chain["expiry"])) >= 2:
+                exp = sorted(set(chain["expiry"]))
+                near_chain = chain[chain["expiry"] == exp[0]]
+                far_chain = chain[chain["expiry"] == exp[1]]
+                result["calendar_spreads"] = calendar_spread_analysis(
+                    near_chain, far_chain, spot)
+                result["diagonals"] = diagonal_spread_analysis(chain, spot)
+
+        # Futures analytics
+        result["futures"] = {
+            "spot": spot,
+            "futures_price": futures_price,
+            "dte": dte,
+            "fair_value": futures_fair_value(spot, settings.RISK_FREE_RATE, 0, dte),
+            "basis": futures_basis(spot, futures_price, dte),
+            "arb": cash_futures_arbitrage(spot, futures_price, dte),
+            "greeks": futures_greeks(spot, futures_price, dte).__dict__,
+            "margin": futures_margin_estimate(futures_price, 50),
+        }
+
+        # Alpha/Beta
+        result["alpha_beta"] = capm_alpha_beta(returns, bench_returns).__dict__
+
+        return json_safe(result)
+
+    except HTTPException:
+        # Preserve deliberate status codes (the 404 above / the 502 inside the
+        # inner try) instead of collapsing them into a second 502.
+        raise
+    except Exception as e:
+        logger.exception("F&O analytics failed")
+        raise HTTPException(502, f"F&O analytics failed: {e}")
 
 
 # Additional F&O endpoints
@@ -826,21 +953,21 @@ def options_greeks_surface(symbol: str, expiry: str | None = None):
             raise HTTPException(404, "No chain data")
         
         chain_iv = iv_surface(chain, spot)
+        dte = days_to_expiry(chain_iv["expiry"].iloc[0]) if "expiry" in chain_iv else 30
+        T = dte / 365.0
         results = []
         for _, row in chain_iv.iterrows():
             if row.get("ce_iv", 0) > 0:
-                T = row.get("dte", 30) / 365.0
-                g = full_greeks(spot, row["strike"], T, settings.RISK_FREE_RATE, 
+                g = full_greeks(spot, row["strike"], T, settings.RISK_FREE_RATE,
                                row["ce_iv"]/100, "CE")
                 results.append({"strike": row["strike"], "type": "CE", **g.__dict__})
             if row.get("pe_iv", 0) > 0:
-                T = row.get("dte", 30) / 365.0
-                g = full_greeks(spot, row["strike"], T, settings.RISK_FREE_RATE, 
+                g = full_greeks(spot, row["strike"], T, settings.RISK_FREE_RATE,
                                row["pe_iv"]/100, "PE")
                 results.append({"strike": row["strike"], "type": "PE", **g.__dict__})
-        
-        return {"symbol": sym, "spot": spot, "expiry": chain["expiry"].iloc[0], 
-                "greeks_surface": results}
+
+        return {"symbol": sym, "spot": spot, "expiry": chain_iv["expiry"].iloc[0]
+                 if "expiry" in chain_iv else sym, "dte": dte, "greeks_surface": results}
     except Exception as e:
         raise HTTPException(502, f"Greeks surface failed: {e}")
 
@@ -915,3 +1042,30 @@ def futures_margin_endpoint(symbol: str, futures_price: float, lot_size: int = 5
 # =================================================================== #
 # SPA
 # =================================================================== #
+# index.html references its assets at the site root (`/css/style.css`,
+# `/js/app.js`), so those two directories are mounted at the root rather
+# than under a `/static` prefix. Registered last so the `/api/*` routes
+# above always win.
+_STATIC = Path(__file__).parent / "static"
+
+@app.get("/favicon.ico", include_in_schema=False)
+def _favicon():
+    from fastapi.responses import Response
+    svg = (
+        "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 32 32\">"
+        + '<rect width="32" height="32" rx="7" fill="#0c1018"/>'
+        + '<text x="16" y="22" font-size="18" text-anchor="middle" fill="#38bdf8" font-family="monospace" font-weight="bold">Q</text>'
+        + "</svg>"
+    )
+    return Response(svg, media_type="image/svg+xml")
+
+
+
+app.mount("/css", StaticFiles(directory=_STATIC / "css"), name="css")
+app.mount("/js", StaticFiles(directory=_STATIC / "js"), name="js")
+
+
+@app.get("/", response_class=HTMLResponse, include_in_schema=False)
+def dashboard() -> str:
+    """Serve the dashboard shell."""
+    return (_STATIC / "index.html").read_text(encoding="utf-8")

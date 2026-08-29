@@ -76,7 +76,8 @@ def close_to_calc(close: pd.Series, w: int) -> pd.Series:
 
 def atr_percentile(high, low, close, window: int = 14, lookback: int = 252) -> float:
     from analysis.indicators import atr
-    a = atr(high, low, close, window)
+    df = pd.DataFrame({"high": high, "low": low, "close": close})
+    a = atr(df, window)
     hist = a.iloc[-lookback:]
     return round(float((hist.iloc[-1] > hist).mean() * 100), 1)   # percentile 0-100
 

@@ -1,6 +1,6 @@
 """QuantDesk India — command line interface.
 
-  python main.py serve                 # launch web dashboard (http://localhost:8000)
+  python main.py serve                 # launch web dashboard (http://localhost:8080)
   python main.py quote RELIANCE
   python main.py screener --top 12
   python main.py signal RELIANCE --strategy supertrend_rsi
@@ -228,7 +228,7 @@ def main():
     sub = p.add_subparsers(dest="cmd", required=True)
 
     s = sub.add_parser("serve"); s.add_argument("--host", default="127.0.0.1")
-    s.add_argument("--port", type=int, default=8000); s.set_defaults(fn=cmd_serve)
+    s.add_argument("--port", type=int, default=8080); s.set_defaults(fn=cmd_serve)
 
     s = sub.add_parser("quote"); s.add_argument("symbol"); s.set_defaults(fn=cmd_quote)
 

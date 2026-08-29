@@ -103,12 +103,16 @@ class TestCaseEngineMath:
 class TestSocialOSINT:
     def test_buzz_degrades_gracefully(self, monkeypatch):
         import research.osint_news as os
-        monkeypatch.setattr(os, "google_news",
-                            lambda q, limit=10: {"source": "x", "query": q,
-                                                 "status": "unavailable (X)", "items": []})
-        monkeypatch.setattr(os, "reddit_buzz",
-                            lambda q, limit=8: {"source": "r", "query": q,
-                                                "status": "unavailable (Y)",
-                                                "mentions_30d_sample": 0, "posts": []})
+        # every source in the registry fails -> buzz must still return a shape
+        def boom(_q, limit=12):
+            raise RuntimeError("blocked")
+        monkeypatch.setattr(os, "_build_sources", lambda: {
+             "google_news": {"label": "G", "fetch": boom, "authoritative": True},
+             "reddit": {"label": "R", "fetch": boom, "authoritative": False},
+         })
         b = os.buzz("TESTSYM")
         assert b["symbol"] == "TESTSYM" and "buzz_score" in b
+        assert b["mentions"] == 0 and b["sources_reachable"] == 0
+        assert b["top_items"] == []
+        for r in b["feed_reachability"]:
+            assert r["ok"] is False

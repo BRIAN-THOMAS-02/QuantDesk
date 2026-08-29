@@ -281,8 +281,12 @@ def pcr_analysis(chain: pd.DataFrame) -> dict:
     
     total_ce_oi = chain["ce_oi"].sum()
     total_pe_oi = chain["pe_oi"].sum()
-    total_ce_vol = chain["ce_vol"].sum() if "ce_vol" in chain.columns else 0
-    total_pe_vol = chain["pe_vol"].sum() if "pe_vol" in chain.columns else 0
+     # NSE option_chain exposes ce_volume/pe_volume; tolerate the ce_vol/pe_vol
+     # aliases some callers pass so PCR-by-volume is never silently zero.
+    ce_vol_col = "ce_volume" if "ce_volume" in chain.columns else "ce_vol"
+    pe_vol_col = "pe_volume" if "pe_volume" in chain.columns else "pe_vol"
+    total_ce_vol = chain[ce_vol_col].sum() if ce_vol_col in chain.columns else 0
+    total_pe_vol = chain[pe_vol_col].sum() if pe_vol_col in chain.columns else 0
     
     return {
         "pcr_oi": round(total_pe_oi / total_ce_oi, 3) if total_ce_oi else 0,

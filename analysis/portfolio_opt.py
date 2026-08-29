@@ -32,7 +32,7 @@ class PortfolioOptimizer:
                        np.ones(n) / n, method="SLSQP",
                        bounds=[(0, 1)] * n,
                        constraints={"type": "eq", "fun": lambda w: w.sum() - 1})
-        return self._to_weights(res.x)
+        return self._to_weights(res.x, list(self.rets.columns))
 
     def max_sharpe(self, rf: float = settings.RISK_FREE_RATE) -> pd.Series:
         n = len(self.mu)
@@ -44,7 +44,7 @@ class PortfolioOptimizer:
         res = minimize(neg_sharpe, np.ones(n) / n, method="SLSQP",
                        bounds=[(0, 1)] * n,
                        constraints={"type": "eq", "fun": lambda w: w.sum() - 1})
-        return self._to_weights(res.x)
+        return self._to_weights(res.x, list(self.rets.columns))
 
     def efficient_frontier(self, points: int = 25) -> list[dict]:
         n = len(self.mu)

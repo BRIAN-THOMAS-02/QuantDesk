@@ -19,7 +19,7 @@ cp .env.example .env
 
 # 3. Launch the web dashboard
 python main.py serve
-# → http://localhost:8619
+# → http://localhost:8080
 ```
 
 ### CLI One-Liners

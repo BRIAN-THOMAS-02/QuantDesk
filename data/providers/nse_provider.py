@@ -101,24 +101,30 @@ class NSEProvider(DataProvider):
         d = self._get_json(path, {"symbol": u})
         rec = d.get("records", {})
         expiry = expiry or rec.get("expiryDates", [None])[0]
+        cols = ["expiry", "strike", "spot", "ce_oi", "ce_chg_oi", "ce_iv", "ce_ltp",
+                 "ce_volume", "pe_oi", "pe_chg_oi", "pe_iv", "pe_ltp", "pe_volume", "pcr_strike"]
+        if not rec.get("data"):
+            return pd.DataFrame(columns=cols)
         rows = []
         for item in rec.get("data", []):
             if item.get("expiryDate") != expiry:
                 continue
             ce, pe = item.get("CE") or {}, item.get("PE") or {}
             rows.append({
-                "expiry": expiry,
-                "strike": item.get("strikePrice"),
-                "spot": rec.get("underlyingValue"),
-                "ce_oi": ce.get("openInterest"), "ce_chg_oi": ce.get("changeinOpenInterest"),
-                "ce_iv": ce.get("impliedVolatility"), "ce_ltp": ce.get("lastPrice"),
-                "ce_volume": ce.get("totalTradedVolume"),
-                "pe_oi": pe.get("openInterest"), "pe_chg_oi": pe.get("changeinOpenInterest"),
-                "pe_iv": pe.get("impliedVolatility"), "pe_ltp": pe.get("lastPrice"),
-                "pe_volume": pe.get("totalTradedVolume"),
-                "pcr_strike": ((pe.get("openInterest") or 0) /
-                               (ce.get("openInterest") or 1)),
-            })
+                 "expiry": expiry,
+                 "strike": item.get("strikePrice"),
+                 "spot": rec.get("underlyingValue"),
+                 "ce_oi": ce.get("openInterest"), "ce_chg_oi": ce.get("changeinOpenInterest"),
+                 "ce_iv": ce.get("impliedVolatility"), "ce_ltp": ce.get("lastPrice"),
+                 "ce_volume": ce.get("totalTradedVolume"),
+                 "pe_oi": pe.get("openInterest"), "pe_chg_oi": pe.get("changeinOpenInterest"),
+                 "pe_iv": pe.get("impliedVolatility"), "pe_ltp": pe.get("lastPrice"),
+                 "pe_volume": pe.get("totalTradedVolume"),
+                 "pcr_strike": ((pe.get("openInterest") or 0) /
+                                (ce.get("openInterest") or 1)),
+             })
+        if not rows:
+            return pd.DataFrame(columns=cols)
         df = pd.DataFrame(rows).dropna(subset=["strike"]).sort_values("strike")
         return df.reset_index(drop=True)
 
