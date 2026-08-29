@@ -101,7 +101,7 @@ function renderFormula(root,d,symbol){
      <h3>Worked example (static)</h3>
      <table>${Object.entries(d.static_example).map(([k,v])=>`<tr><td>${esc(k)}</td><td>${esc(v)}</td></tr>`).join("")}</table></div>`:""}
    ${d.live_example?`<div class="fm-section fm-example">
-     <h3>🔴 LIVE worked example — ${esc(d.example_symbol||symbol||"")} right now</h3>
+      <h3>LIVE worked example — ${esc(d.example_symbol||symbol||"")} right now</h3>
      <table>${d.live_example.rows.map(r=>`<tr><td>${esc(r[0])}</td><td>${esc(r[1])}</td></tr>`).join("")}</table>
      <p class="muted small mt8">${esc(d.live_example.note||"")}</p></div>`
      :`<div class="fm-section muted small">live example unavailable for this one${symbol?` on ${esc(symbol)}`:""}.</div>`}
@@ -279,7 +279,7 @@ async function showSignal(sym){
       </div>
       ${await renderInsight(s, sym)}
       ${s.sizing&&s.sizing.qty>0?`<div class="row-actions"><button id="btnPaperFromSig" class="primary">
-        ➕ Paper-buy ${s.sizing.qty} @ ~₹${num(s.entry)}</button></div>`:""}`;
+         + Paper-buy ${s.sizing.qty} @ ~₹${num(s.entry)}</button></div>`:""}`;
     const b=$("#btnPaperFromSig");
     if(b)b.onclick=async()=>{try{
       await api("/paper/order",{method:"POST",body:JSON.stringify(
@@ -853,7 +853,7 @@ $("#btnBuzz").onclick=async()=>{
            /rall|surge|up|high|gain|rebound|record/i.test(n.title||"")?'<span class="pos">+</span>':'<span class="neu">·</span>');
       const link = n.link?`<a href="${esc(n.link)}" target="_blank" rel="noopener" class="open">↗</a>`:"";
       const sub = isR
-          ? `<span>▲${n.score} 💬${n.comments||0}</span><span class="badge info">REDDIT</span>`
+            ? `<span>▲${n.score} ${n.comments||0} comments</span><span class="badge info">REDDIT</span>`
           : `<span class="badge info">${esc(String(n.source||"").split(' ')[0].toUpperCase())}</span>`;
       const auth = (n.authority!=null)?`<span class="muted">auth ${Math.round(n.authority*100)}%</span>`:"";
       const rel = n.relevant?`<span class="badge ok">references ${esc(b.symbol)}</span>`:"";

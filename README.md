@@ -1,11 +1,11 @@
-# QuantDesk India 🇮🇳
+# QuantDesk India
 
 A full-stack **algorithmic trading & research platform** for the Indian markets (NSE/BSE).  
 Built for swing traders, options strategists, and quants who want institutional-grade tools on OSINT data — with a clean path to live Zerodha Kite execution.
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 ```bash
 # 1. Clone & install
@@ -45,7 +45,7 @@ python main.py formula bs_price --symbol NIFTY --S 24500 --K 24600 --T_days 7 --
 
 ---
 
-## 🏗️ Architecture
+## Architecture
 
 ```
 Trading-Project/
@@ -90,7 +90,7 @@ Trading-Project/
 
 ---
 
-## 📊 Web Dashboard (http://localhost:8619)
+## Web Dashboard (http://localhost:8080)
 
 | Panel | What You Get |
 |-------|--------------|
@@ -118,7 +118,7 @@ Every metric in the UI has a blue **ⓘ** icon. Clicking it opens a modal with:
 
 ---
 
-## 🔬 OSINT Data Sources (No API Keys Required)
+## OSINT Data Sources (No API Keys Required)
 
 | Source | Endpoints Used | Coverage |
 |--------|----------------|----------|
@@ -131,7 +131,7 @@ Every metric in the UI has a blue **ⓘ** icon. Clicking it opens a modal with:
 
 ---
 
-## ⚙️ Connecting Zerodha Kite (Live Execution)
+## Connecting Zerodha Kite (Live Execution)
 
 1. Register at https://developers.kite.trade → create app → get `API_KEY` & `API_SECRET`.
 2. Add to `.env`:
@@ -152,7 +152,7 @@ Every metric in the UI has a blue **ⓘ** icon. Clicking it opens a modal with:
 
 ---
 
-## 📈 Key Quantitative Features
+## Key Quantitative Features
 
 ### Black-Scholes + Greeks
 - Vectorized `bs_price`, `greeks` (Δ, Γ, Θ, ν, ρ) for entire chains
@@ -183,7 +183,7 @@ Every metric in the UI has a blue **ⓘ** icon. Clicking it opens a modal with:
 
 ---
 
-## 🧪 Tests
+## Tests
 ```bash
 pytest tests/ -q
 # 40 passing: BS parity, CRR→BS convergence, MC CI coverage, ADX non-neg, 
@@ -192,7 +192,7 @@ pytest tests/ -q
 
 ---
 
-## 🔒 Safety & Guardrails
+## Safety & Guardrails
 
 - **Default = PAPER MODE**. Live execution requires `TRADING_MODE=live` + valid Kite tokens + `confirm=True` on every call.
 - **Heat limits**: max 8% aggregate risk, 10 concurrent positions, 1% per trade default.
@@ -202,7 +202,7 @@ pytest tests/ -q
 
 ---
 
-## 🗂️ Research Artifacts (Auto-Persisted)
+## Research Artifacts (Auto-Persisted)
 
 All generated dossiers are saved under `research/store/`:
 - `case_studies/shree_refrigerations/symbol_resolution.json`
@@ -216,7 +216,7 @@ List them: `GET /api/research/files` or `python main.py list-research`.
 
 ---
 
-## 📝 Extending the System
+## Extending the System
 
 | Want to… | Do this |
 |----------|---------|
@@ -229,7 +229,7 @@ List them: `GET /api/research/files` or `python main.py list-research`.
 
 ---
 
-## 📚 Key References Embedded
+## Key References Embedded
 
 - Black-Scholes-Merton (1973), Merton (1976) jump diffusion
 - Heston (1993) stochastic volatility
@@ -241,7 +241,7 @@ List them: `GET /api/research/files` or `python main.py list-research`.
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
 PRs welcome! Priority areas:
 - More pattern detectors for Case Study engine
@@ -252,7 +252,7 @@ PRs welcome! Priority areas:
 
 ---
 
-## ⚠️ Disclaimer
+## Disclaimer
 
 **This software is for research and educational purposes.**  
 - Past performance ≠ future results.  
@@ -263,7 +263,7 @@ PRs welcome! Priority areas:
 
 ---
 
-## 📄 License
+## License
 
 MIT — use freely, attribute if you fork.
 
